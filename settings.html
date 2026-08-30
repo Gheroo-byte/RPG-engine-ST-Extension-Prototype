@@ -1,26 +1,9 @@
 <!--
-  RPG Engine - Settings Panel Skeleton
-  =====================================
-  This is a STRUCTURAL FOUNDATION. The Formula Tester (Dice section) is
-  now genuinely wired to engine-core.js; every other section remains
-  placeholder content per the "build the full foundation first" approach.
-
-  Follows SillyTavern's own native UI pattern (the same expand/collapse
-  "drawer" style used by World Info entries, the Character panel, and the
-  Extensions list) rather than a custom tab bar - chosen specifically
-  because vertical accordion sections are inherently mobile-friendly.
-
-  Everything is nested inside ONE outer master drawer (see
-  data-section="master" below), matching how every other extension in
-  the Extensions list (Story Engine, Quick Reply, etc.) collapses to a
-  single line by default rather than spilling its full contents into
-  the page. The 9 inner sections reuse the exact same .rpg-drawer
-  mechanism one level down, so wireDrawers() in index.js - which
-  generically selects every .rpg-drawer on the page - handles both
-  levels automatically with zero additional JS.
-
-  This whole block gets injected into SillyTavern's extensions settings
-  container (see index.js).
+  RPG Engine - Settings Panel
+  ===========================
+  Characters & Stats drawers are now fully wired.
+  Formula Tester shows live stats from the selected character.
+  All other drawers remain placeholder per incremental dev approach.
 -->
 
 <div id="rpg-engine-container" class="rpg-engine-root">
@@ -83,14 +66,13 @@
     </div>
     <div class="rpg-drawer-content">
       <div id="rpg-character-list" class="rpg-character-list">
-        <div class="rpg-empty-state">No characters tracked yet.</div>
+        <div class="rpg-empty-state">No characters tracked yet. Click "+ Add Character" to create one.</div>
       </div>
       <div class="rpg-button-row">
         <button id="rpg-char-add" class="rpg-btn" disabled>+ Add Character</button>
         <button id="rpg-char-import-from-persona" class="rpg-btn" disabled>Import from Persona</button>
       </div>
-      <p class="rpg-placeholder-note">Placeholder: persistent character state (stats, HP/MP, level) will
-        list here, independent of any single chat.</p>
+      <p class="rpg-placeholder-note">Persistent character state (stats, HP/MP, level) independent of any single chat.</p>
     </div>
   </div>
 
@@ -104,16 +86,18 @@
       <span class="rpg-drawer-summary" id="rpg-stats-summary">Not configured</span>
     </div>
     <div class="rpg-drawer-content">
-      <p class="rpg-section-desc">Define the stats for the active World Profile. Add, rename, or remove
-        without touching code.</p>
+      <p class="rpg-section-desc">Define the stats for the active World Profile. Add, rename, or remove without touching code.</p>
+      <label for="rpg-stats-world-profile-select">World Profile</label>
+      <select id="rpg-stats-world-profile-select" disabled>
+        <option value="">-- Select a profile --</option>
+      </select>
       <div id="rpg-stats-list" class="rpg-stats-list">
         <div class="rpg-empty-state">No stats defined. Select or create a World Profile first.</div>
       </div>
       <div class="rpg-button-row">
         <button id="rpg-stats-add" class="rpg-btn" disabled>+ Add Stat</button>
       </div>
-      <p class="rpg-placeholder-note">Placeholder: also where the Stat vs. Bonus relationship
-        (per-world configurable) will be defined.</p>
+      <p class="rpg-placeholder-note">Also where the Stat vs. Bonus relationship (per-world configurable) will be defined.</p>
     </div>
   </div>
 
@@ -127,8 +111,7 @@
       <span class="rpg-drawer-summary">d4 d6 d8 d10 d12 d20 d100 (standard)</span>
     </div>
     <div class="rpg-drawer-content">
-      <p class="rpg-section-desc">Standard dice are always available. Register custom dice (e.g. d60)
-        for worlds that need them.</p>
+      <p class="rpg-section-desc">Standard dice are always available. Register custom dice (e.g. d60) for worlds that need them.</p>
       <div id="rpg-custom-dice-list" class="rpg-dice-list">
         <div class="rpg-empty-state">No custom dice registered.</div>
       </div>
@@ -138,12 +121,12 @@
       </div>
       <details class="rpg-formula-tester">
         <summary>Formula Tester (offline, no chat required)</summary>
+        <div id="rpg-formula-test-stats-preview" class="rpg-formula-stats-preview"></div>
         <input type="text" id="rpg-formula-test-input" placeholder="e.g. d60 + INT + 0.5*BLS" class="rpg-input-full" disabled>
         <button id="rpg-formula-test-run" class="rpg-btn" disabled>Evaluate</button>
         <pre id="rpg-formula-test-output" class="rpg-formula-output">// results will appear here</pre>
       </details>
-      <p class="rpg-placeholder-note">Placeholder: the Formula Tester box above will eventually call
-        engine-core.js directly so you can sanity-check a formula without needing a live chat.</p>
+      <p class="rpg-placeholder-note">The Formula Tester calls engine-core.js directly so you can sanity-check a formula without needing a live chat.</p>
     </div>
   </div>
 
@@ -157,8 +140,7 @@
       <span class="rpg-drawer-summary" id="rpg-rules-summary">0 rules defined</span>
     </div>
     <div class="rpg-drawer-content">
-      <p class="rpg-section-desc">Rules define named actions (like "Pounce") as either an Opposed Check,
-        a Static Check, or a free-form formula.</p>
+      <p class="rpg-section-desc">Rules define named actions (like "Pounce") as either an Opposed Check, a Static Check, or a free-form formula.</p>
       <div id="rpg-rules-list" class="rpg-rules-list">
         <div class="rpg-empty-state">No rules defined yet.</div>
       </div>
@@ -167,9 +149,7 @@
         <button id="rpg-rule-add-static" class="rpg-btn" disabled>+ Static Check</button>
         <button id="rpg-rule-add-freeform" class="rpg-btn" disabled>+ Free-form</button>
       </div>
-      <p class="rpg-placeholder-note">Placeholder: this is also where authored lore ("Pounce = Strength +
-        0.5 Agility + d60") gets converted into a stored rule, with your approval before it becomes
-        ground truth.</p>
+      <p class="rpg-placeholder-note">Placeholder: this is also where authored lore ("Pounce = Strength + 0.5 Agility + d60") gets converted into a stored rule, with your approval before it becomes ground truth.</p>
     </div>
   </div>
 
@@ -189,8 +169,7 @@
       <div class="rpg-button-row">
         <button id="rpg-effect-add" class="rpg-btn" disabled>+ Add Effect</button>
       </div>
-      <p class="rpg-placeholder-note">Placeholder: buffs/debuffs with duration, and inventory item
-        effects (e.g. "Gloves of Power: +1 STR while equipped") will surface here.</p>
+      <p class="rpg-placeholder-note">Placeholder: buffs/debuffs with duration, and inventory item effects (e.g. "Gloves of Power: +1 STR while equipped") will surface here.</p>
     </div>
   </div>
 
@@ -212,8 +191,7 @@
         <button id="rpg-export-state" class="rpg-btn" disabled>Export Character State</button>
         <button id="rpg-import-state" class="rpg-btn" disabled>Import Character State</button>
       </div>
-      <p class="rpg-placeholder-note">Placeholder: exported files will carry a schemaVersion field so
-        future engine versions can migrate old saves instead of breaking them.</p>
+      <p class="rpg-placeholder-note">Placeholder: exported files will carry a schemaVersion field so future engine versions can migrate old saves instead of breaking them.</p>
     </div>
   </div>
 
@@ -239,8 +217,7 @@
         <input type="checkbox" id="rpg-manual-override-warnings" checked disabled>
         <span>Always visually flag manual overrides in chat</span>
       </label>
-      <p class="rpg-placeholder-note">Placeholder: this is where a cheaper/faster model gets assigned
-        to intent-detection specifically, separate from your main narrator model.</p>
+      <p class="rpg-placeholder-note">Placeholder: this is where a cheaper/faster model gets assigned to intent-detection specifically, separate from your main narrator model.</p>
     </div>
   </div>
 
@@ -260,8 +237,7 @@
       <div class="rpg-button-row">
         <button id="rpg-log-clear" class="rpg-btn rpg-btn-danger" disabled>Clear Log</button>
       </div>
-      <p class="rpg-placeholder-note">Placeholder: every state change (damage taken, level up, item
-        gained) will log here as a delta, so changes can eventually be undone.</p>
+      <p class="rpg-placeholder-note">Placeholder: every state change (damage taken, level up, item gained) will log here as a delta, so changes can eventually be undone.</p>
     </div>
   </div>
 
