@@ -339,8 +339,12 @@ function openCharacterEditor(id) {
   }).join('');
 
   const settings = getSettings();
+  // One option per ruleset. For a new character, default the selection to the
+  // active ruleset; for an existing character, to its own ruleset. (Single
+  // source of options - avoids the active ruleset appearing twice.)
+  const worldSelectValue = char?.ruleset ?? settings.activeRuleset;
   const rulesetOptions = Object.values(settings.rulesets || {})
-    .map(r => `<option value="${escapeHtml(r.id)}" ${char?.ruleset === r.id ? 'selected' : ''}>${escapeHtml(r.displayName)}</option>`)
+    .map(r => `<option value="${escapeHtml(r.id)}" ${r.id === worldSelectValue ? 'selected' : ''}>${escapeHtml(r.displayName)}</option>`)
     .join('');
 
   const modalHtml = `
@@ -354,7 +358,7 @@ function openCharacterEditor(id) {
         <div class="rpg-form-group">
           <label for="rpg-char-world">Ruleset</label>
           <select id="rpg-char-world" class="rpg-input-full" ${!isNew ? 'disabled' : ''}>
-            ${isNew ? `<option value="${escapeHtml(settings.activeRuleset)}" selected>${escapeHtml(activeRuleSet?.displayName || settings.activeRuleset)}</option>${rulesetOptions}` : rulesetOptions}
+            ${rulesetOptions}
           </select>
         </div>
         <div class="rpg-form-group">
