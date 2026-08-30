@@ -1,0 +1,273 @@
+<!--
+  RPG Engine - Settings Panel Skeleton
+  =====================================
+  This is a STRUCTURAL FOUNDATION. The Formula Tester (Dice section) is
+  now genuinely wired to engine-core.js; every other section remains
+  placeholder content per the "build the full foundation first" approach.
+
+  Follows SillyTavern's own native UI pattern (the same expand/collapse
+  "drawer" style used by World Info entries, the Character panel, and the
+  Extensions list) rather than a custom tab bar - chosen specifically
+  because vertical accordion sections are inherently mobile-friendly.
+
+  Everything is nested inside ONE outer master drawer (see
+  data-section="master" below), matching how every other extension in
+  the Extensions list (Story Engine, Quick Reply, etc.) collapses to a
+  single line by default rather than spilling its full contents into
+  the page. The 9 inner sections reuse the exact same .rpg-drawer
+  mechanism one level down, so wireDrawers() in index.js - which
+  generically selects every .rpg-drawer on the page - handles both
+  levels automatically with zero additional JS.
+
+  This whole block gets injected into SillyTavern's extensions settings
+  container (see index.js).
+-->
+
+<div id="rpg-engine-container" class="rpg-engine-root">
+
+<div class="rpg-drawer" data-section="master">
+  <div class="rpg-drawer-toggle">
+    <span class="rpg-drawer-icon">▶</span>
+    <span class="rpg-drawer-title">🎲 RPG Engine</span>
+    <span class="rpg-drawer-summary">World-agnostic mechanics engine</span>
+  </div>
+  <div class="rpg-drawer-content">
+
+  <div class="rpg-engine-header">
+    <label class="checkbox_label">
+      <input type="checkbox" id="rpg-engine-master-toggle" checked>
+      <span>Enabled</span>
+    </label>
+  </div>
+
+  <div class="rpg-engine-subtitle">
+    World-agnostic mechanics engine. Configure a world profile below to get started.
+  </div>
+
+  <div id="rpg-connection-status" class="rpg-connection-status">
+    <span class="rpg-status-detail">Connecting...</span>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 🌎 WORLD -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="world">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">🌎 World</span>
+      <span class="rpg-drawer-summary" id="rpg-world-summary">No profile loaded</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <label for="rpg-world-profile-select">Active World Profile</label>
+      <select id="rpg-world-profile-select" disabled>
+        <option value="">-- No profiles yet --</option>
+      </select>
+      <div class="rpg-button-row">
+        <button id="rpg-world-new-profile" class="rpg-btn" disabled>+ New Profile</button>
+        <button id="rpg-world-duplicate-profile" class="rpg-btn" disabled>Duplicate</button>
+        <button id="rpg-world-delete-profile" class="rpg-btn rpg-btn-danger" disabled>Delete</button>
+      </div>
+      <p class="rpg-placeholder-note">Placeholder: this is where you'll switch between world profiles
+        (e.g. Shattered Dominion / Kaelrath) without touching code. Not yet wired to storage.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 👤 CHARACTERS -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="characters">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">👤 Characters</span>
+      <span class="rpg-drawer-summary" id="rpg-characters-summary">0 tracked</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <div id="rpg-character-list" class="rpg-character-list">
+        <div class="rpg-empty-state">No characters tracked yet.</div>
+      </div>
+      <div class="rpg-button-row">
+        <button id="rpg-char-add" class="rpg-btn" disabled>+ Add Character</button>
+        <button id="rpg-char-import-from-persona" class="rpg-btn" disabled>Import from Persona</button>
+      </div>
+      <p class="rpg-placeholder-note">Placeholder: persistent character state (stats, HP/MP, level) will
+        list here, independent of any single chat.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 📊 STATS -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="stats">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">📊 Stats</span>
+      <span class="rpg-drawer-summary" id="rpg-stats-summary">Not configured</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <p class="rpg-section-desc">Define the stats for the active World Profile. Add, rename, or remove
+        without touching code.</p>
+      <div id="rpg-stats-list" class="rpg-stats-list">
+        <div class="rpg-empty-state">No stats defined. Select or create a World Profile first.</div>
+      </div>
+      <div class="rpg-button-row">
+        <button id="rpg-stats-add" class="rpg-btn" disabled>+ Add Stat</button>
+      </div>
+      <p class="rpg-placeholder-note">Placeholder: also where the Stat vs. Bonus relationship
+        (per-world configurable) will be defined.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 🎲 DICE -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="dice">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">🎲 Dice</span>
+      <span class="rpg-drawer-summary">d4 d6 d8 d10 d12 d20 d100 (standard)</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <p class="rpg-section-desc">Standard dice are always available. Register custom dice (e.g. d60)
+        for worlds that need them.</p>
+      <div id="rpg-custom-dice-list" class="rpg-dice-list">
+        <div class="rpg-empty-state">No custom dice registered.</div>
+      </div>
+      <div class="rpg-button-row">
+        <input type="text" id="rpg-custom-die-name" placeholder="e.g. d60" class="rpg-input-small" disabled>
+        <button id="rpg-dice-add-custom" class="rpg-btn" disabled>+ Register Die</button>
+      </div>
+      <details class="rpg-formula-tester">
+        <summary>Formula Tester (offline, no chat required)</summary>
+        <input type="text" id="rpg-formula-test-input" placeholder="e.g. d60 + INT + 0.5*BLS" class="rpg-input-full" disabled>
+        <button id="rpg-formula-test-run" class="rpg-btn" disabled>Evaluate</button>
+        <pre id="rpg-formula-test-output" class="rpg-formula-output">// results will appear here</pre>
+      </details>
+      <p class="rpg-placeholder-note">Placeholder: the Formula Tester box above will eventually call
+        engine-core.js directly so you can sanity-check a formula without needing a live chat.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- ⚔️ RULES -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="rules">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">⚔️ Rules</span>
+      <span class="rpg-drawer-summary" id="rpg-rules-summary">0 rules defined</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <p class="rpg-section-desc">Rules define named actions (like "Pounce") as either an Opposed Check,
+        a Static Check, or a free-form formula.</p>
+      <div id="rpg-rules-list" class="rpg-rules-list">
+        <div class="rpg-empty-state">No rules defined yet.</div>
+      </div>
+      <div class="rpg-button-row">
+        <button id="rpg-rule-add-opposed" class="rpg-btn" disabled>+ Opposed Check</button>
+        <button id="rpg-rule-add-static" class="rpg-btn" disabled>+ Static Check</button>
+        <button id="rpg-rule-add-freeform" class="rpg-btn" disabled>+ Free-form</button>
+      </div>
+      <p class="rpg-placeholder-note">Placeholder: this is also where authored lore ("Pounce = Strength +
+        0.5 Agility + d60") gets converted into a stored rule, with your approval before it becomes
+        ground truth.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 📜 EFFECTS -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="effects">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">📜 Effects</span>
+      <span class="rpg-drawer-summary" id="rpg-effects-summary">0 active</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <div id="rpg-effects-list" class="rpg-effects-list">
+        <div class="rpg-empty-state">No status effects active.</div>
+      </div>
+      <div class="rpg-button-row">
+        <button id="rpg-effect-add" class="rpg-btn" disabled>+ Add Effect</button>
+      </div>
+      <p class="rpg-placeholder-note">Placeholder: buffs/debuffs with duration, and inventory item
+        effects (e.g. "Gloves of Power: +1 STR while equipped") will surface here.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 💾 SAVE/LOAD -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="save-load">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">💾 Save/Load</span>
+      <span class="rpg-drawer-summary">—</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <div class="rpg-button-row">
+        <button id="rpg-export-profile" class="rpg-btn" disabled>Export World Profile (.json)</button>
+        <button id="rpg-import-profile" class="rpg-btn" disabled>Import World Profile (.json)</button>
+      </div>
+      <div class="rpg-button-row">
+        <button id="rpg-export-state" class="rpg-btn" disabled>Export Character State</button>
+        <button id="rpg-import-state" class="rpg-btn" disabled>Import Character State</button>
+      </div>
+      <p class="rpg-placeholder-note">Placeholder: exported files will carry a schemaVersion field so
+        future engine versions can migrate old saves instead of breaking them.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- ⚙️ SETTINGS -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="settings">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">⚙️ Settings</span>
+      <span class="rpg-drawer-summary">—</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <label for="rpg-fast-ai-profile">Fast AI connection profile (intent detection / item parsing)</label>
+      <select id="rpg-fast-ai-profile" disabled>
+        <option value="">-- Use main narrator connection --</option>
+      </select>
+      <label class="checkbox_label">
+        <input type="checkbox" id="rpg-two-pass-mode" disabled>
+        <span>Two-pass generation (narrator stops at intent, engine resolves, narrator continues)</span>
+      </label>
+      <label class="checkbox_label">
+        <input type="checkbox" id="rpg-manual-override-warnings" checked disabled>
+        <span>Always visually flag manual overrides in chat</span>
+      </label>
+      <p class="rpg-placeholder-note">Placeholder: this is where a cheaper/faster model gets assigned
+        to intent-detection specifically, separate from your main narrator model.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 📋 EVENT / AUDIT LOG -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="log">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">📋 Event Log</span>
+      <span class="rpg-drawer-summary" id="rpg-log-summary">0 events</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <div id="rpg-event-log" class="rpg-event-log">
+        <div class="rpg-empty-state">No events recorded yet.</div>
+      </div>
+      <div class="rpg-button-row">
+        <button id="rpg-log-clear" class="rpg-btn rpg-btn-danger" disabled>Clear Log</button>
+      </div>
+      <p class="rpg-placeholder-note">Placeholder: every state change (damage taken, level up, item
+        gained) will log here as a delta, so changes can eventually be undone.</p>
+    </div>
+  </div>
+
+  </div>
+  <!-- /master drawer content -->
+  </div>
+  <!-- /master drawer -->
+
+</div>

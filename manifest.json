@@ -1,0 +1,12 @@
+{
+  "display_name": "RPG Engine",
+  "loading_order": 100,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "Kris (with Claude)",
+  "version": "0.1.0",
+  "homePage": "https://github.com/Gheroo-byte/RPG-engine-ST-extension",
+  "auto_update": false
+}

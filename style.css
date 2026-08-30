@@ -1,0 +1,262 @@
+/* RPG Engine - Settings Panel Styles
+ * Mobile-first: everything below is designed to work correctly on a
+ * narrow phone viewport first, then just naturally scales up on desktop
+ * since it's a single vertical column regardless of screen width.
+ *
+ * Uses var(--SmartThemeXxx, fallback) throughout so it inherits
+ * SillyTavern's active theme where those variables exist, and still
+ * looks reasonable if they don't - not verified byte-exact against ST's
+ * theme system today, so fallbacks matter here.
+ */
+
+.rpg-engine-root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 4px;
+  font-size: 0.95em;
+}
+
+.rpg-engine-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 2px;
+}
+
+.rpg-engine-subtitle {
+  opacity: 0.75;
+  font-size: 0.85em;
+  padding: 0 2px 4px 2px;
+}
+
+.rpg-connection-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 0.82em;
+  margin-bottom: 4px;
+}
+
+.rpg-status-ok {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.rpg-status-error {
+  color: #e05555;
+  font-weight: 600;
+}
+
+.rpg-status-detail {
+  opacity: 0.75;
+}
+
+/* ---- Drawers (collapsible sections) ---- */
+
+.rpg-drawer {
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.03));
+}
+
+.rpg-drawer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px;   /* generous tap target for mobile, min ~44px total height */
+  min-height: 24px;
+  cursor: pointer;
+  user-select: none;
+  flex-wrap: wrap;
+}
+
+.rpg-drawer-toggle:active {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.rpg-drawer-icon {
+  display: inline-block;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+  width: 1em;
+}
+
+.rpg-drawer.open > .rpg-drawer-toggle > .rpg-drawer-icon {
+  transform: rotate(90deg);
+}
+
+.rpg-drawer-title {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.rpg-drawer-summary {
+  margin-left: auto;
+  opacity: 0.6;
+  font-size: 0.85em;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rpg-drawer-content {
+  display: none;
+  padding: 4px 12px 14px 12px;
+  border-top: 1px solid var(--SmartThemeBorderColor, #444);
+}
+
+.rpg-drawer.open > .rpg-drawer-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---- Buttons ---- */
+
+.rpg-button-row {
+  display: flex;
+  flex-wrap: wrap;   /* buttons reflow to a new line on narrow screens rather than overflow */
+  gap: 8px;
+}
+
+.rpg-btn {
+  flex: 1 1 auto;
+  min-height: 40px;   /* touch-friendly */
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--SmartThemeBorderColor, #555);
+  background: var(--SmartThemeQuoteColor, #2a2a2a);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.rpg-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rpg-btn-danger {
+  border-color: #a33;
+}
+
+/* ---- Inputs ---- */
+
+.rpg-input-small {
+  flex: 1 1 120px;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--SmartThemeBorderColor, #555);
+  background: var(--SmartThemeBlurTintColor, #1a1a1a);
+  color: inherit;
+}
+
+.rpg-input-full {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--SmartThemeBorderColor, #555);
+  background: var(--SmartThemeBlurTintColor, #1a1a1a);
+  color: inherit;
+  box-sizing: border-box;
+}
+
+select {
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+/* ---- Lists / empty states ---- */
+
+.rpg-character-list,
+.rpg-stats-list,
+.rpg-dice-list,
+.rpg-rules-list,
+.rpg-effects-list,
+.rpg-event-log {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rpg-empty-state {
+  opacity: 0.5;
+  font-style: italic;
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 0.9em;
+}
+
+/* ---- Formula tester ---- */
+
+.rpg-formula-tester {
+  border: 1px dashed var(--SmartThemeBorderColor, #555);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.rpg-formula-tester summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.rpg-formula-output {
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  min-height: 2.5em;
+}
+
+/* ---- Misc ---- */
+
+.rpg-section-desc {
+  opacity: 0.75;
+  font-size: 0.88em;
+  margin: 0;
+}
+
+.rpg-placeholder-note {
+  opacity: 0.55;
+  font-size: 0.82em;
+  font-style: italic;
+  margin: 4px 0 0 0;
+  border-left: 2px solid var(--SmartThemeBorderColor, #555);
+  padding-left: 8px;
+}
+
+.checkbox_label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+
+/* ---- Small-screen tightening (phones narrower than ~400px) ---- */
+
+@media (max-width: 400px) {
+  .rpg-drawer-summary {
+    display: none;   /* on very narrow screens, drop the summary text rather than truncate awkwardly */
+  }
+
+  .rpg-btn {
+    flex: 1 1 100%;   /* stack buttons full-width one per row instead of cramming side by side */
+  }
+}
