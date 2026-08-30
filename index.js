@@ -38,7 +38,19 @@ import { evaluateFormula, EngineError, DiceRoller } from './engine-core.js';
 import { RULESETS, SCHEMA_VERSION } from './rulesets.js';
 
 const MODULE_NAME = 'rpg-engine';
-const EXTENSION_FOLDER = 'third-party/RPG-engine-ST-extension';
+
+// Path to this extension's template folder, relative to how SillyTavern serves
+// user extensions. This extension is installed through SillyTavern's native
+// user-extension installer, which places it in
+//   data/<user>/extensions/<folder>/   (served at /extensions/<folder>/)
+// so renderExtensionTemplateAsync must be given the PLAIN folder name, NOT a
+// "third-party/..." path. The "third-party/" prefix is only used for legacy
+// bundled extensions that live under public/scripts/extensions/third-party/;
+// using it here made ST request the (nonexistent) bundled path, causing a 404.
+//
+// The folder name below must match the installed user-extension folder, which
+// the native installer derives from the repository name.
+const EXTENSION_FOLDER = 'RPG-engine-ST-Extension-Prototype';
 
 // =============================================================================
 // DEFAULT SETTINGS (schema template)
