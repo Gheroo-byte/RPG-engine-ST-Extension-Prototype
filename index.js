@@ -40,6 +40,10 @@ const EXTENSION_FOLDER = 'third-party/RPG-engine-ST-extension';
 // =============================================================================
 // DEFAULT DATA STRUCTURES
 // =============================================================================
+// NOTE: defaultSettings is only a *template*. It is frozen at the top level
+// so nothing ever mutates it by accident. Every value is cloned out of it via
+// deepClone() - never shared by reference - so nested objects (worldProfiles,
+// characters, etc.) can never be accidentally aliased across callers.
 
 const defaultSettings = Object.freeze({
   enabled: true,
@@ -56,24 +60,27 @@ const defaultSettings = Object.freeze({
   selectedCharacterId: null,
 });
 
-/** Deep clone helper */
+/** Deep clone helper (safe for plain data: no functions/Dates involved). */
 function deepClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
-/** Gets (and lazily initializes) this extension's persistent settings
- *  object. Also backfills any new default keys added in later versions,
- *  so upgrading the extension doesn't wipe out a user's existing saved
- *  values. */
+/**
+ * Gets (and lazily initializes) this extension's persistent settings object.
+ * Each default key is backfilled with its own deep clone if missing - a single
+ * mechanism that handles BOTH first-time initialization and upgrading older
+ * saves that lack newly-added keys. This avoids ever sharing a reference to
+ * the frozen default objects, and avoids cloning the whole template only to
+ * immediately backfill the same keys again.
+ */
 function getSettings() {
   const { extensionSettings } = SillyTavern.getContext();
-  if (!extensionSettings[MODULE_NAME]) {
-    extensionSettings[MODULE_NAME] = deepClone(defaultSettings);
+  if (!extensionSettings[MODULE_NAME] || typeof extensionSettings[MODULE_NAME] !== 'object') {
+    extensionSettings[MODULE_NAME] = {};
   }
-  // Backfill any missing keys from defaultSettings
-  for (const key of Object.keys(defaultSettings)) {
+  for (const [key, value] of Object.entries(defaultSettings)) {
     if (!Object.hasOwn(extensionSettings[MODULE_NAME], key)) {
-      extensionSettings[MODULE_NAME][key] = deepClone(defaultSettings[key]);
+      extensionSettings[MODULE_NAME][key] = deepClone(value);
     }
   }
   return extensionSettings[MODULE_NAME];
@@ -375,7 +382,7 @@ function wireCharactersDrawer() {
 function renderStatsDrawer() {
   const listEl = document.getElementById('rpg-stats-list');
   const summaryEl = document.getElementById('rpg-stats-summary');
-  const selectEl = document.getElementById('rpg-world-profile-select');
+  const selectEl = document.getElementById('rpg-stats-world-profile-select');
   if (!listEl || !selectEl) return;
 
   const settings = getSettings();
@@ -502,7 +509,7 @@ function deleteStat(index) {
 
 /** Wire the Stats drawer buttons */
 function wireStatsDrawer() {
-  const selectEl = document.getElementById('rpg-world-profile-select');
+  const selectEl = document.getElementById('rpg-stats-world-profile-select');
   const addBtn = document.getElementById('rpg-stats-add');
 
   if (selectEl) {
