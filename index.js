@@ -325,8 +325,13 @@ function selectCharacter(id) {
 function openCharacterEditor(id) {
   const char = getCharacterById(id);
   const isNew = !char;
-  const activeRuleSet = getActiveRuleSet();
-  const statNames = getBaseStatNames(activeRuleSet);
+  // The editor must show the stat names of the character's OWN ruleset (for
+  // edits) or the active ruleset (for new characters). Previously it always
+  // used the active ruleset, which - when editing a character whose ruleset
+  // differs from the active one - showed the wrong stat names and, on save,
+  // wrote wrong-named entries into char.base, corrupting the character.
+  const editorRuleSet = (char?.ruleset && getRuleSet(char.ruleset)) || getActiveRuleSet();
+  const statNames = getBaseStatNames(editorRuleSet);
 
   const statsHtml = statNames.map(name => {
     const value = char?.base?.[name]?.value ?? 0;
