@@ -117,13 +117,21 @@ export function validateRuleset(ruleset) {
 /**
  * Extract the names of every stat referenced by a formula, matching the
  * identifier rules of engine-core's tokenizer (letters, then letters/digits).
+ *
+ * Dice notation is excluded: any token matching `[n]dN` (e.g. `d6`, `d20`,
+ * `d60`, `2d6`, `4d8`) is a die roll, not a stat reference, and must never be
+ * reported as a dependency.
  */
 export function extractStatReferences(formula) {
-  const re = /\b[A-Za-z_][A-Za-z0-9_]*\b/g;
+  if (typeof formula !== 'string') return new Set();
+  const re = /[A-Za-z_][A-Za-z0-9_]*/g;
   const found = new Set();
   let m;
   while ((m = re.exec(formula)) !== null) {
-    found.add(m[0]);
+    const token = m[0];
+    // Skip die-roll tokens: optional leading count digits then 'd' + sides.
+    if (/^\d*d\d+$/i.test(token)) continue;
+    found.add(token);
   }
   return found;
 }
