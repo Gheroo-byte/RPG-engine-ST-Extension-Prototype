@@ -10,6 +10,8 @@ import {
   StatsError,
   validateRuleset,
   createStat,
+  getBaseStatNames,
+  getStatCap,
   createCharacter,
   getStat,
   setStat,
@@ -46,17 +48,6 @@ function assertEqual(actual, expected, description) {
     failed++;
     failures.push(description);
     console.log(`  FAIL: ${description} (expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)})`);
-  }
-}
-
-function assertThrows(fn, description) {
-  try {
-    fn();
-    failed++;
-    failures.push(description);
-    console.log(`  FAIL: ${description} (expected to throw, but did not)`);
-  } catch (e) {
-    passed++;
   }
 }
 
@@ -112,11 +103,9 @@ section('Configurable stat definitions / arbitrary names');
   const rs = makeRuleset();
   assert(validateRuleset(rs) === true, 'validateRuleset accepts a well-formed ruleset');
 
-  // Arbitrary names are preserved verbatim
   assert(Object.keys(rs.base).includes('Vim'), 'ruleset holds arbitrary base stat name "Vim"');
   assert(Object.keys(rs.base).includes('Dash'), 'ruleset holds arbitrary base stat name "Dash"');
 
-  // A second ruleset with completely different names works with the same engine
   const rs2 = { base: { Foo: {}, Bar: {} }, derived: {} };
   assert(validateRuleset(rs2) === true, 'a ruleset with entirely different stat names is accepted');
 
@@ -130,7 +119,7 @@ section('Configurable stat definitions / arbitrary names');
 }
 
 // =============================================================================
-section('createStat / ruleset stat registration');
+section('createStat / ruleset stat registration / base name lookups');
 // =============================================================================
 {
   const rs = { base: {}, derived: {} };
@@ -142,6 +131,10 @@ section('createStat / ruleset stat registration');
 
   assertThrowsStats(() => createStat(rs, '', {}), 'createStat refuses an empty stat name');
   assertThrowsStats(() => createStat(rs, 'X', 'bad'), 'createStat refuses a non-object definition');
+
+  assert(getBaseStatNames(rs).includes('Luck'), 'getBaseStatNames lists registered base stats');
+  assertEqual(getStatCap({ base: { Luck: { cap: 99 } } }, 'Luck'), 99, 'getStatCap reads a numeric cap');
+  assertEqual(getStatCap({ base: { Luck: {} } }, 'Luck'), null, 'getStatCap returns null when no cap');
 }
 
 // =============================================================================
@@ -153,9 +146,8 @@ section('Base stat creation / access / set / modify');
 
   assertEqual(getStat(c, 'Vim'), 10, 'getStat reads a base stat value');
   assertEqual(getStat(c, 'Dash'), 5, 'getStat reads a second base stat');
-  assertEqual(getStat(c, 'Grit'), 0, 'unsupplied base value defaults to 0'); // createCharacter ignores? no: Grit supplied 3
+  assertEqual(getStat(c, 'Grit'), 3, 'getStat reads a supplied base value');
 
-  // reset a clean character for default-value check
   const c2 = makeCharacter(rs);
   assertEqual(getStat(c2, 'Grit'), 0, 'unsupplied base value defaults to 0');
 
@@ -205,7 +197,6 @@ section('Derived stats: dependency resolution any order');
   assertEqual(eff.MaxHP, 56, 'MaxHP = Endurance*10 + Strength*2 (50 + 6)');
   assertEqual(eff.Attack, 5, 'Attack = Strength + Agility (3 + 2)');
 
-  // Out-of-order declaration (dependencies referenced before defined)
   const rs2 = {
     base: { A: {}, B: {}, C: {} },
     derived: {
@@ -217,6 +208,26 @@ section('Derived stats: dependency resolution any order');
   const eff2 = getEffectiveStats(c2, rs2);
   assertEqual(eff2.Bottom, 6, 'out-of-order derived Bottom = C*2 resolves');
   assertEqual(eff2.Top, 9, 'out-of-order derived Top = A+B+Bottom resolves (1+2+6)');
+}
+
+// =============================================================================
+section('Derived stats: dice notation in formulas');
+// =============================================================================
+{
+  // A derived formula may contain a die roll; that die must NOT be treated as
+  // a stat dependency (regression for the extractStatReferences dice bug).
+  const rs = {
+    base: { Power: {} },
+    derived: { Strike: { formula: 'Power + d20' } },
+  };
+  const c = createCharacter(rs, { Power: 5 });
+  const eff = getEffectiveStats(c, rs);
+  // Strike equals Power + a d20 roll (1..20), so it is always in [6, 25].
+  assert(
+    typeof eff.Strike === 'number' && eff.Strike >= 6 && eff.Strike <= 25,
+    `derived formula with dice resolves (Strike=${eff.Strike} in [6,25])`,
+  );
+  assertEqual(orderDerivedStats(rs).length, 1, 'dice-containing derived stat sorts without a missing-dep error');
 }
 
 // =============================================================================
@@ -259,10 +270,14 @@ section('Derived stats: cycle and missing-dependency detection');
   };
   assertThrowsStats(() => getEffectiveStats(createCharacter(missing, { A: 0 }), missing), 'missing dependency throws StatsError');
 
-  // extractStatReferences standalone
+  // extractStatReferences: stats detected, dice ignored
   const refs = extractStatReferences('Strength + 0.5 * Agility + d60');
   assert(refs.has('Strength') && refs.has('Agility'), 'extractStatReferences finds stat identifiers');
   assert(!refs.has('d60'), 'extractStatReferences ignores dice notation (d60)');
+
+  const refs2 = extractStatReferences('2d6 + str + DEX');
+  assert(!refs2.has('2d6'), 'extractStatReferences ignores dice notation (2d6)');
+  assert(refs2.has('str') && refs2.has('DEX'), 'extractStatReferences detects stat names via case');
 }
 
 // =============================================================================
@@ -273,13 +288,12 @@ section('Modifiers: additive, multiple, temporary, permanent');
   const c = createCharacter(rs, { Vim: 10 });
 
   addModifier(c, { stat: 'Vim', amount: 5 });
-  assertEqual(getAppliedModifiers(c, 'Vim').length, 1, 'permanent-by-default modifier applies');
+  assertEqual(getAppliedModifiers(c, 'Vim').length, 1, 'modifier applies to its target stat');
   assertEqual(getEffectiveStats(c, rs).Vim, 15, 'single additive modifier raises effective Vim (10+5)');
 
   addModifier(c, { stat: 'Vim', amount: -3, permanent: true });
   assertEqual(getEffectiveStats(c, rs).Vim, 12, 'multiple additive modifiers combine (10+5-3)');
 
-  // Temporary modifier expires
   const c2 = createCharacter(rs, { Vim: 10 });
   addModifier(c2, { stat: 'Vim', amount: 100, until: 1000 });
   assertEqual(getEffectiveStats(c2, rs, 500).Vim, 110, 'temporary modifier applies before expiry');
@@ -334,12 +348,10 @@ section('Serialization / restoration');
 section('Ruleset-specific definitions (Shattered Dominion / Kaelrath / D&D shaped)');
 // =============================================================================
 {
-  // Three rulesets, none sharing stat names, all working through the same APIs
   const sd = {
     base: { STR: {}, DEX: { cap: 60 } },
     derived: { 'Max HP': { formula: 'CON*10 + STR*2' }, 'Max CHI': { formula: 'BLS*10' } },
   };
-  // SD derived needs CON/BLS which aren't base here, but we only exercise what exists
   const kae = {
     base: { Strength: {}, Agility: {}, Endurance: {} },
     derived: { HP: { formula: 'Endurance*10 + Strength*2' } },
