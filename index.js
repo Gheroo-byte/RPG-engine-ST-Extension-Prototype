@@ -34,14 +34,29 @@
  * persisted settings, UI, events) and delegates derived/effective-stat
  * resolution to the stats layer.
  *
+ * AI SERVICE LAYER (read-only first slice):
+ *   The AI Service layer is split exactly like the stats layer:
+ *     - ai-core.js  = pure models (slots, permissions, action vocabulary, proposal
+ *                     validation). No ST, no DOM, no mutation.
+ *     - ai-store.js = ST-coupled (persist slots, resolve connection, dispatch via
+ *                     ST-native AI infra).
+ *   index.js is the ONLY place that runs a slot and renders its text. The first
+ *   slice is strictly READ-ONLY: the AI receives a snapshot copy of engine state
+ *   and returns text. It never receives mutation functions and never mutates
+ *   state. The engine (engine-core.js + stats.js) remains authoritative.
+ *
  * PRESERVED UNCHANGED:
  *   - engine-core.js (the pure formula/dice/check engine)
+ *   - stats.js (the pure statistics layer)
+ *   - rulesets.js (the ruleset definitions)
  *   - the persistence mechanism (getSettings/saveSettings + backfill)
  */
 
 import { evaluateFormula, EngineError, DiceRoller } from './engine-core.js';
 import { RULESETS, SCHEMA_VERSION } from './rulesets.js';
 import { getEffectiveStats, getStatCap, getBaseStatNames } from './stats.js';
+import { getSlots, getSlot, dispatchSlot } from './ai-store.js';
+import { parseProposals } from './ai-core.js';
 
 const MODULE_NAME = 'rpg-engine';
 
@@ -78,6 +93,8 @@ const defaultSettings = Object.freeze({
   characters: [],
   // selectedCharacterId: id of the character shown in the Formula Tester
   selectedCharacterId: null,
+  // aiSlots: seeded lazily by ai-store.js (getSlots). Kept out of the frozen
+  // template so ai-store remains the single source of truth for slot defaults.
 });
 
 /** Deep clone helper (safe for plain data: no functions/Dates involved). */
@@ -652,6 +669,137 @@ function wireFormulaTester() {
 }
 
 // =============================================================================
+// AI SLOTS DRAWER (read-only first slice)
+// =============================================================================
+
+/**
+ * Build a READ-ONLY snapshot of engine state for an AI request. This is a deep
+ * clone (JSON roundtrip) so the AI layer, however badly behaved, cannot reach
+ * back into live engine objects. It contains only plain data; no functions.
+ */
+function buildAiSnapshot() {
+  const settings = getSettings();
+  const activeRuleset = getActiveRuleSet();
+  const rulesetSummary = activeRuleset
+    ? {
+        id: activeRuleset.id,
+        displayName: activeRuleset.displayName,
+        base: Object.keys(activeRuleset.base ?? {}),
+        derived: Object.keys(activeRuleset.derived ?? {}),
+      }
+    : null;
+
+  const characters = (settings.characters ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    ruleset: c.ruleset,
+    effectiveStats: getCharacterEffectiveStats(c),
+  }));
+
+  // JSON roundtrip: guarantees a plain, detached, JSON-safe copy.
+  return JSON.parse(JSON.stringify({
+    schemaVersion: settings.schemaVersion,
+    activeRuleset: settings.activeRuleset,
+    rulesetSummary,
+    characters,
+    selectedCharacterId: settings.selectedCharacterId,
+  }));
+}
+
+/** Render the AI Slots drawer: list slots + enable a read-only assistant. */
+function renderAiSlotsDrawer() {
+  const listEl = document.getElementById('rpg-ai-slots-list');
+  const summaryEl = document.getElementById('rpg-ai-slots-summary');
+  if (!listEl) return;
+
+  const settings = getSettings();
+  const slots = getSlots(settings);
+
+  if (summaryEl) {
+    const enabled = slots.filter((s) => s.enabled).length;
+    summaryEl.textContent = `${slots.length} slots (${enabled} enabled)`;
+  }
+
+  if (slots.length === 0) {
+    listEl.innerHTML = '<div class="rpg-empty-state">No AI slots configured.</div>';
+    return;
+  }
+
+  listEl.innerHTML = slots.map((slot) => {
+    const canRun = slot.enabled && slot.permission === 'read-only';
+    return `
+      <div class="rpg-ai-slot-item" data-id="${escapeHtml(slot.id)}">
+        <div class="rpg-ai-slot-header">
+          <span class="rpg-ai-slot-label">${escapeHtml(slot.label)}</span>
+          <span class="rpg-ai-slot-permission">${escapeHtml(slot.permission)}</span>
+        </div>
+        <div class="rpg-ai-slot-purpose">${escapeHtml(slot.purpose || '')}</div>
+        <div class="rpg-ai-slot-actions">
+          <button class="rpg-btn rpg-btn-small rpg-ai-slot-run" data-id="${escapeHtml(slot.id)}" ${canRun ? '' : 'disabled'}>Ask Assistant</button>
+        </div>
+        <pre class="rpg-ai-slot-output" data-output-for="${escapeHtml(slot.id)}">${slot.enabled && slot.permission === 'read-only' ? '// click "Ask Assistant" to inspect current state (read-only)' : '// this slot is disabled or not read-only'}</pre>
+        <p class="rpg-placeholder-note">Read-only: the AI may inspect and explain state; it cannot change anything.</p>
+      </div>
+    `;
+  }).join('');
+
+  listEl.querySelectorAll('.rpg-ai-slot-run').forEach((btn) => {
+    btn.addEventListener('click', () => runAiSlot(btn.dataset.id));
+  });
+}
+
+/** Run a read-only AI slot: snapshot → dispatch → display text. No mutation. */
+async function runAiSlot(slotId) {
+  const settings = getSettings();
+  const slot = getSlot(settings, slotId);
+  if (!slot) {
+    console.warn(`[${MODULE_NAME}] AI slot "${slotId}" not found.`);
+    return;
+  }
+  if (!slot.enabled) return;
+  if (slot.permission !== 'read-only') {
+    // First slice: only read-only slots are runnable. This is a hard gate.
+    console.warn(`[${MODULE_NAME}] Slot "${slot.id}" is not read-only; not runnable in this slice.`);
+    return;
+  }
+
+  const outputEl = document.querySelector(`[data-output-for="${slot.id}"]`);
+  if (outputEl) outputEl.textContent = '// contacting AI...';
+
+  try {
+    const snapshot = buildAiSnapshot();
+    const request = {
+      systemPrompt:
+        'You are a ruleset/rules assistant for a tabletop RPG engine. ' +
+        'Explain the provided game state clearly and precisely. ' +
+        'You are strictly READ-ONLY: you may inspect and explain, but you ' +
+        'must never propose or perform any change to game state. Return plain text.',
+      userPrompt:
+        'Here is the current game state (read-only snapshot):\n' +
+        JSON.stringify(snapshot, null, 2) +
+        '\n\nExplain the active ruleset and current character stats in plain language.',
+    };
+
+    const text = await dispatchSlot(slot, request, {});
+    // Read-only slots must yield no proposals; this is a defense in depth.
+    const proposals = parseProposals(text, slot);
+    if (proposals.length > 0) {
+      console.warn(`[${MODULE_NAME}] Read-only slot produced proposals; ignoring them.`, proposals);
+    }
+
+    if (outputEl) outputEl.textContent = text || '(no response)';
+  } catch (err) {
+    console.error(`[${MODULE_NAME}] AI slot run failed:`, err);
+    if (outputEl) outputEl.textContent = `// error: ${err?.message || err}`;
+  }
+}
+
+/** Wire the AI Slots drawer (read-only slot run buttons). */
+function wireAiSlotsDrawer() {
+  renderAiSlotsDrawer();
+}
+
+// =============================================================================
 // INITIALIZATION
 // =============================================================================
 
@@ -668,6 +816,7 @@ async function init() {
     wireCharactersDrawer();
     wireStatsDrawer();
     wireFormulaTester();
+    wireAiSlotsDrawer();
     renderConnectionStatus();
     renderCharactersList();
     renderStatsDrawer();
