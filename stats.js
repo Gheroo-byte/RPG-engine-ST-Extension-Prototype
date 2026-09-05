@@ -26,6 +26,8 @@
  * ---
  *   validateRuleset(ruleset)
  *   createStat(ruleset, name, def?)
+ *   getBaseStatNames(ruleset)
+ *   getStatCap(ruleset, statName)
  *   createCharacter(ruleset, baseValues?)
  *   getStat(character, name)
  *   setStat(character, name, value)
@@ -33,7 +35,7 @@
  *   addModifier(character, mod)
  *   getAppliedModifiers(character, name, now?)
  *   getEffectiveStats(character, ruleset, now?)
- *   serializeState(state) / deserializeState(json)
+ *   serializeCharacter(character) / deserializeCharacter(json)
  */
 
 import { evaluateFormula, EngineError } from './engine-core.js';
@@ -143,7 +145,6 @@ export function orderDerivedStats(ruleset) {
     const refs = extractStatReferences(derived[name].formula);
     const dep = new Set();
     for (const ref of refs) {
-      // Skip self-reference at the dependency level (handled by cycle check).
       if (ref === name) continue;
       if (!allNames.has(ref)) {
         throw new StatsError(
@@ -192,6 +193,16 @@ export function orderDerivedStats(ruleset) {
 // =============================================================================
 // RULESET STAT CONFIGURATION
 // =============================================================================
+
+/** Get the base stat names declared by a ruleset, in declaration order. */
+export function getBaseStatNames(ruleset) {
+  return Object.keys(ruleset?.base ?? {});
+}
+
+/** Look up the cap definition for a stat within its ruleset (may be null). */
+export function getStatCap(ruleset, statName) {
+  return ruleset?.base?.[statName]?.cap ?? null;
+}
 
 /** Register (or replace) a base stat definition on a ruleset. */
 export function createStat(ruleset, name, def = {}) {
@@ -343,8 +354,6 @@ export function getEffectiveStats(character, ruleset, now = Date.now()) {
     effective[name] = value;
   }
 
-  // Resolve derived stats in dependency order. Any missing dependency, cycle,
-  // or formula error surfaces here instead of being swallowed.
   const ordered = orderDerivedStats(ruleset);
   for (const name of ordered) {
     const { formula } = ruleset.derived[name];
@@ -378,7 +387,7 @@ export function validateCharacterStats(character, ruleset) {
   const violations = [];
   for (const [name, def] of Object.entries(ruleset.base)) {
     const value = character?.base ? statValue(character.base[name]) : null;
-    if (value === null) continue; // missing base value is handled by getEffectiveStats default
+    if (value === null) continue;
     const min = def?.min;
     const max = def?.max;
     if (typeof min === 'number' && value < min) {
