@@ -30,8 +30,9 @@
  *   - no new UI, no progression, no effects, no combat integration
  *
  * The modular statistics logic now lives in stats.js (pure, host-independent).
- * index.js keeps only SillyTavern-specific concerns (persistence, UI, events)
- * and delegates derived/effective-stat resolution to the stats layer.
+ * index.js keeps only SillyTavern-specific concerns (ruleset lookup from
+ * persisted settings, UI, events) and delegates derived/effective-stat
+ * resolution to the stats layer.
  *
  * PRESERVED UNCHANGED:
  *   - engine-core.js (the pure formula/dice/check engine)
@@ -40,7 +41,7 @@
 
 import { evaluateFormula, EngineError, DiceRoller } from './engine-core.js';
 import { RULESETS, SCHEMA_VERSION } from './rulesets.js';
-import { getEffectiveStats, getStatCap, getBaseStatNames, getRuleSet } from './stats.js';
+import { getEffectiveStats, getStatCap, getBaseStatNames } from './stats.js';
 
 const MODULE_NAME = 'rpg-engine';
 
@@ -126,6 +127,12 @@ function escapeHtml(str) {
 // =============================================================================
 // RULESET / STAT HELPERS (data layer)
 // =============================================================================
+
+/** Look up a ruleset definition by id from persisted settings. */
+function getRuleSet(id) {
+  const settings = getSettings();
+  return settings.rulesets?.[id] ?? null;
+}
 
 /** Get the currently active ruleset, resolving to the rulesets map. */
 function getActiveRuleSet() {
