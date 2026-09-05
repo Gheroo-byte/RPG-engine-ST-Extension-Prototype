@@ -29,6 +29,10 @@
  *   - existing prototype UI code paths updated ONLY to read/write this schema
  *   - no new UI, no progression, no effects, no combat integration
  *
+ * The modular statistics logic now lives in stats.js (pure, host-independent).
+ * index.js keeps only SillyTavern-specific concerns (persistence, UI, events)
+ * and delegates derived/effective-stat resolution to the stats layer.
+ *
  * PRESERVED UNCHANGED:
  *   - engine-core.js (the pure formula/dice/check engine)
  *   - the persistence mechanism (getSettings/saveSettings + backfill)
@@ -36,6 +40,7 @@
 
 import { evaluateFormula, EngineError, DiceRoller } from './engine-core.js';
 import { RULESETS, SCHEMA_VERSION } from './rulesets.js';
+import { getEffectiveStats, getStatCap, getBaseStatNames, getRuleSet } from './stats.js';
 
 const MODULE_NAME = 'rpg-engine';
 
@@ -122,73 +127,30 @@ function escapeHtml(str) {
 // RULESET / STAT HELPERS (data layer)
 // =============================================================================
 
-/** Get a ruleset definition by id. */
-function getRuleSet(id) {
-  return getSettings().rulesets?.[id] ?? null;
-}
-
-/** Get the currently active ruleset. */
+/** Get the currently active ruleset, resolving to the rulesets map. */
 function getActiveRuleSet() {
   const settings = getSettings();
   return settings.rulesets?.[settings.activeRuleset] ?? null;
 }
 
-/** Get the base stat names declared by a ruleset, in order. */
-function getBaseStatNames(ruleset) {
-  return Object.keys(ruleset?.base ?? {});
-}
-
-/** Look up the cap definition for a stat within its ruleset (may be null). */
-function getStatCap(ruleset, statName) {
-  return ruleset?.base?.[statName]?.cap ?? null;
-}
-
-/**
- * Lazy-compute derived values for a ruleset against a set of base numbers.
- * Mutates and returns `numbers` by injecting resolved derived keys, using a
- * fixpoint loop so derived values that reference other derived values still
- * resolve regardless of declaration order. Pure - nothing is persisted.
- */
-function computeDerived(ruleset, numbers) {
-  const derived = ruleset?.derived || {};
-  const keys = Object.keys(derived);
-  let progress = true;
-  while (progress) {
-    progress = false;
-    for (const name of keys) {
-      if (!(name in numbers)) {
-        try {
-          numbers[name] = evaluateFormula(derived[name].formula, numbers, new DiceRoller()).total;
-          progress = true;
-        } catch (err) {
-          // Dependency not resolvable yet (or a malformed formula) - skip until
-          // a later pass; this keeps one bad/forward formula from aborting all.
-        }
-      }
-    }
-  }
-  return numbers;
-}
-
-/**
- * Resolve a character's effective stat numbers: base values (from the
- * structured character.base) plus lazy-computed derived values from the
- * character's ruleset. Returns a flat { statName: number } map suitable for
- * evaluateFormula()/staticCheck()/opposedCheck().
- */
+/** Resolve a character's effective stats via the pure statistics layer. */
 function getCharacterEffectiveStats(character) {
   const ruleset = getRuleSet(character?.ruleset);
-  const numbers = {};
-  for (const [name, def] of Object.entries(character?.base ?? {})) {
-    numbers[name] = Number(typeof def === 'object' ? def.value : def) || 0;
+  if (!ruleset) {
+    // No ruleset -> just base values, no derived resolution.
+    const numbers = {};
+    for (const [name, def] of Object.entries(character?.base ?? {})) {
+      numbers[name] = Number(typeof def === 'object' ? def.value : def) || 0;
+    }
+    return numbers;
   }
-  return computeDerived(ruleset, numbers);
+  return getEffectiveStats(character, ruleset);
 }
 
 /** Get a character by ID. */
 function getCharacterById(id) {
   const settings = getSettings();
-  return settings.characters.find(c => c.id === id);
+  return settings.characters.find((c) => c.id === id);
 }
 
 /** Get the currently selected character (for the Formula Tester). */
@@ -289,9 +251,9 @@ function renderCharactersList() {
     return;
   }
 
-  listEl.innerHTML = characters.map(char => {
+  listEl.innerHTML = characters.map((char) => {
     const statChips = Object.entries(char.base || {}).map(([k, def]) => {
-      const v = (def && typeof def === 'object') ? (def.value ?? def) : def;
+      const v = def && typeof def === 'object' ? def.value ?? def : def;
       return `<span class="rpg-stat-chip">${escapeHtml(k)}: ${v}</span>`;
     }).join('');
     return `
@@ -312,13 +274,13 @@ function renderCharactersList() {
     `;
   }).join('');
 
-  listEl.querySelectorAll('.rpg-char-select').forEach(btn => {
+  listEl.querySelectorAll('.rpg-char-select').forEach((btn) => {
     btn.addEventListener('click', () => selectCharacter(btn.dataset.id));
   });
-  listEl.querySelectorAll('.rpg-char-edit').forEach(btn => {
+  listEl.querySelectorAll('.rpg-char-edit').forEach((btn) => {
     btn.addEventListener('click', () => openCharacterEditor(btn.dataset.id));
   });
-  listEl.querySelectorAll('.rpg-char-delete').forEach(btn => {
+  listEl.querySelectorAll('.rpg-char-delete').forEach((btn) => {
     btn.addEventListener('click', () => deleteCharacter(btn.dataset.id));
   });
 }
@@ -338,14 +300,11 @@ function openCharacterEditor(id) {
   const char = getCharacterById(id);
   const isNew = !char;
   // The editor must show the stat names of the character's OWN ruleset (for
-  // edits) or the active ruleset (for new characters). Previously it always
-  // used the active ruleset, which - when editing a character whose ruleset
-  // differs from the active one - showed the wrong stat names and, on save,
-  // wrote wrong-named entries into char.base, corrupting the character.
+  // edits) or the active ruleset (for new characters).
   const editorRuleSet = (char?.ruleset && getRuleSet(char.ruleset)) || getActiveRuleSet();
   const statNames = getBaseStatNames(editorRuleSet);
 
-  const statsHtml = statNames.map(name => {
+  const statsHtml = statNames.map((name) => {
     const value = char?.base?.[name]?.value ?? 0;
     return `
       <div class="rpg-stat-input-row">
@@ -356,12 +315,9 @@ function openCharacterEditor(id) {
   }).join('');
 
   const settings = getSettings();
-  // One option per ruleset. For a new character, default the selection to the
-  // active ruleset; for an existing character, to its own ruleset. (Single
-  // source of options - avoids the active ruleset appearing twice.)
   const worldSelectValue = char?.ruleset ?? settings.activeRuleset;
   const rulesetOptions = Object.values(settings.rulesets || {})
-    .map(r => `<option value="${escapeHtml(r.id)}" ${r.id === worldSelectValue ? 'selected' : ''}>${escapeHtml(r.displayName)}</option>`)
+    .map((r) => `<option value="${escapeHtml(r.id)}" ${r.id === worldSelectValue ? 'selected' : ''}>${escapeHtml(r.displayName)}</option>`)
     .join('');
 
   const modalHtml = `
@@ -408,7 +364,7 @@ function openCharacterEditor(id) {
 
     if (isNew) {
       const base = {};
-      modal.querySelectorAll('.rpg-stat-value').forEach(input => {
+      modal.querySelectorAll('.rpg-stat-value').forEach((input) => {
         base[input.dataset.stat] = { value: parseFloat(input.value) || 0 };
       });
       const newChar = {
@@ -424,11 +380,10 @@ function openCharacterEditor(id) {
     } else {
       char.name = name;
       if (!char.base) char.base = {};
-      modal.querySelectorAll('.rpg-stat-value').forEach(input => {
+      modal.querySelectorAll('.rpg-stat-value').forEach((input) => {
         const statName = input.dataset.stat;
         if (!char.base[statName]) char.base[statName] = { value: 0 };
         char.base[statName].value = parseFloat(input.value) || 0;
-        // potential is preserved here (not exposed in the UI yet)
       });
     }
 
@@ -448,7 +403,7 @@ function deleteCharacter(id) {
   if (!confirm('Delete this character? This cannot be undone.')) return;
 
   const settings = getSettings();
-  settings.characters = settings.characters.filter(c => c.id !== id);
+  settings.characters = settings.characters.filter((c) => c.id !== id);
   if (settings.selectedCharacterId === id) {
     settings.selectedCharacterId = settings.characters[0]?.id || null;
   }
@@ -467,7 +422,6 @@ function wireCharactersDrawer() {
     addBtn.addEventListener('click', () => openCharacterEditor(null));
   }
   if (importBtn) {
-    // TODO: Import from ST persona
     importBtn.disabled = false;
     importBtn.addEventListener('click', () => alert('Import from Persona — not yet implemented'));
   }
@@ -490,7 +444,7 @@ function renderStatsDrawer() {
   const statNames = getBaseStatNames(active);
 
   selectEl.innerHTML = Object.values(rulesets)
-    .map(r => `<option value="${escapeHtml(r.id)}" ${r.id === settings.activeRuleset ? 'selected' : ''}>${escapeHtml(r.displayName)}</option>`)
+    .map((r) => `<option value="${escapeHtml(r.id)}" ${r.id === settings.activeRuleset ? 'selected' : ''}>${escapeHtml(r.displayName)}</option>`)
     .join('');
   selectEl.disabled = false;
 
@@ -503,7 +457,7 @@ function renderStatsDrawer() {
     return;
   }
 
-  listEl.innerHTML = statNames.map(name => `
+  listEl.innerHTML = statNames.map((name) => `
     <div class="rpg-stat-def-item" data-name="${escapeHtml(name)}">
       <input type="text" class="rpg-input-full rpg-stat-name-input" value="${escapeHtml(name)}" data-stat="${escapeHtml(name)}">
       <div class="rpg-button-row" style="margin-top: 4px;">
@@ -513,10 +467,10 @@ function renderStatsDrawer() {
     </div>
   `).join('');
 
-  listEl.querySelectorAll('.rpg-stat-rename').forEach(btn => {
+  listEl.querySelectorAll('.rpg-stat-rename').forEach((btn) => {
     btn.addEventListener('click', () => renameStat(btn.dataset.stat));
   });
-  listEl.querySelectorAll('.rpg-stat-delete').forEach(btn => {
+  listEl.querySelectorAll('.rpg-stat-delete').forEach((btn) => {
     btn.addEventListener('click', () => deleteStat(btn.dataset.stat));
   });
 }
@@ -557,7 +511,7 @@ function renameStat(oldName) {
   ruleset.base[trimmed] = ruleset.base[oldName];
   delete ruleset.base[oldName];
 
-  settings.characters.forEach(char => {
+  settings.characters.forEach((char) => {
     if (char.ruleset === settings.activeRuleset && char.base && Object.hasOwn(char.base, oldName)) {
       char.base[trimmed] = char.base[oldName];
       delete char.base[oldName];
@@ -584,7 +538,7 @@ function deleteStat(statName) {
 
   delete ruleset.base[statName];
 
-  settings.characters.forEach(char => {
+  settings.characters.forEach((char) => {
     if (char.ruleset === settings.activeRuleset && char.base) {
       delete char.base[statName];
     }
@@ -607,7 +561,7 @@ function wireStatsDrawer() {
       settings.activeRuleset = selectEl.value;
       const selectedChar = getSelectedCharacter();
       if (selectedChar && selectedChar.ruleset !== settings.activeRuleset) {
-        settings.selectedCharacterId = settings.characters.find(c => c.ruleset === settings.activeRuleset)?.id || null;
+        settings.selectedCharacterId = settings.characters.find((c) => c.ruleset === settings.activeRuleset)?.id || null;
       }
       saveSettings();
       renderStatsDrawer();
