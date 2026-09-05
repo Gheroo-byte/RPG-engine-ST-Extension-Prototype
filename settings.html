@@ -3,6 +3,7 @@
   ===========================
   Characters & Stats drawers are now fully wired.
   Formula Tester shows live stats from the selected character.
+  AI Slots drawer exposes the read-only Ruleset Assistant (first vertical slice).
   All other drawers remain placeholder per incremental dev approach.
 -->
 
@@ -127,6 +128,24 @@
         <pre id="rpg-formula-test-output" class="rpg-formula-output">// results will appear here</pre>
       </details>
       <p class="rpg-placeholder-note">The Formula Tester calls engine-core.js directly so you can sanity-check a formula without needing a live chat.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- 🤖 AI SLOTS -->
+  <!-- ============================================================= -->
+  <div class="rpg-drawer" data-section="ai-slots">
+    <div class="rpg-drawer-toggle">
+      <span class="rpg-drawer-icon">▶</span>
+      <span class="rpg-drawer-title">🤖 AI Slots</span>
+      <span class="rpg-drawer-summary" id="rpg-ai-slots-summary">0 slots</span>
+    </div>
+    <div class="rpg-drawer-content">
+      <p class="rpg-section-desc">Configurable AI services. This first slice exposes a read-only Ruleset Assistant: it can inspect and explain state, but cannot change it.</p>
+      <div id="rpg-ai-slots-list" class="rpg-ai-slots-list">
+        <div class="rpg-empty-state">Loading AI slots...</div>
+      </div>
+      <p class="rpg-placeholder-note">Read-only slots prove the authority boundary: the AI may inspect and explain, but the RPG engine alone remains authoritative for state, dice, and outcomes.</p>
     </div>
   </div>
 
