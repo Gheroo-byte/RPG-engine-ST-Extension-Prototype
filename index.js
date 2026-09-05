@@ -50,7 +50,7 @@ const MODULE_NAME = 'rpg-engine';
 //
 // The folder name below must match the installed user-extension folder, which
 // the native installer derives from the repository name.
-const EXTENSION_FOLDER = 'RPG-engine-ST-Extension-Prototype';
+const EXTENSION_FOLDER = 'third-party/RPG-engine-ST-Extension-Prototype';
 
 // =============================================================================
 // DEFAULT SETTINGS (schema template)
