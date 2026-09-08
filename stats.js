@@ -38,7 +38,7 @@
  *   serializeCharacter(character) / deserializeCharacter(json)
  */
 
-import { evaluateFormula, EngineError } from './engine-core.js';
+import { evaluateFormula, EngineError, DiceRoller } from './engine-core.js';
 
 // =============================================================================
 // ERRORS
@@ -172,7 +172,7 @@ export function orderDerivedStats(ruleset) {
   const inDegree = new Map();
   for (const name of names) inDegree.set(name, 0);
   for (const [name, dep] of deps) {
-    for (const d of dep) inDegree.set(d, inDegree.get(d) + 1);
+    for (const d of dep) inDegree.set(name, inDegree.get(name) + 1);
   }
 
   const queue = [...names].filter((n) => inDegree.get(n) === 0);
@@ -366,7 +366,7 @@ export function getEffectiveStats(character, ruleset, now = Date.now()) {
   for (const name of ordered) {
     const { formula } = ruleset.derived[name];
     try {
-      const { total } = evaluateFormula(formula, effective);
+      const { total } = evaluateFormula(formula, effective, new DiceRoller());
       effective[name] = total;
     } catch (err) {
       throw new StatsError(

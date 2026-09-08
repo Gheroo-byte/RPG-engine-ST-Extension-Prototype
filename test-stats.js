@@ -41,7 +41,12 @@ function assert(condition, description) {
 }
 
 function assertEqual(actual, expected, description) {
-  const ok = Object.is(actual, expected);
+  let ok;
+  if (Array.isArray(actual) && Array.isArray(expected)) {
+    ok = actual.length === expected.length && actual.every((v, i) => Object.is(v, expected[i]));
+  } else {
+    ok = Object.is(actual, expected);
+  }
   if (ok) {
     passed++;
   } else {
