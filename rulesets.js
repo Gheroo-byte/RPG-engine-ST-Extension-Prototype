@@ -41,6 +41,35 @@ function plainStat() {
   return {};
 }
 
+/**
+ * D&D 5e ability-score → modifier mapping, expressed as threshold ranges
+ * (configurable ruleset data, NOT engine logic). Mirrors floor((score-10)/2)
+ * for the standard 1..20 ability range.
+ */
+const DND_SCORE_TO_MOD_TABLE = Object.freeze([
+  { max: 1, value: -5 },
+  { min: 2, max: 3, value: -4 },
+  { min: 4, max: 5, value: -3 },
+  { min: 6, max: 7, value: -2 },
+  { min: 8, max: 9, value: -1 },
+  { min: 10, max: 11, value: 0 },
+  { min: 12, max: 13, value: 1 },
+  { min: 14, max: 15, value: 2 },
+  { min: 16, max: 17, value: 3 },
+  { min: 18, max: 19, value: 4 },
+  { min: 20, max: 21, value: 5 },
+  { min: 22, max: 23, value: 6 },
+  { min: 24, max: 25, value: 7 },
+  { min: 26, max: 27, value: 8 },
+  { min: 28, max: 29, value: 9 },
+  { min: 30, value: 10 },
+]);
+
+/** Build a mapping definition `{ source, table }` for a given ability. */
+function dndAbilityMod(ability) {
+  return Object.freeze({ source: ability, table: DND_SCORE_TO_MOD_TABLE });
+}
+
 function buildBase(specs) {
   const out = {};
   for (const [name, def] of Object.entries(specs)) {

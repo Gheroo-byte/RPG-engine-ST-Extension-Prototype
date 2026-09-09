@@ -386,36 +386,35 @@ The RPG engine must remain fully functional without Flowchart or another orchest
 
 # Narrative Resolution
 
-The intended long-term interaction is:
+The intended architecture is **Narrator ⇄ Engine tools/actions** (not a two-pass
+pause-and-resume generation loop):
 
 ```text
-Narrator begins generation
+Narrator requests an action while generating
         │
         ▼
-Narrative reaches mechanical event
+Engine validates the request
         │
         ▼
-State Synchronization detects event
+Engine executes and computes the authoritative result
         │
         ▼
-Optional AI extracts structured event
+Engine returns the structured result
         │
         ▼
-RPG Engine validates and resolves it
-        │
-        ▼
-Authoritative result generated
-        │
-        ▼
-Narrator receives result
-        │
-        ▼
-Narrative continues
+Narrator continues using the actual mechanical result
 ```
 
-This prevents the narrator from becoming the authoritative source of mechanical outcomes.
+The narrator owns prose, interpretation, and scene narration. The RPG engine owns
+authoritative mechanics, calculations, state, formulas, rolls, modifiers, and validation.
+A fast AI connection profile may handle engine-side background tasks (intent detection,
+item parsing, ambiguous request interpretation, structured-data extraction) with the main
+narrator connection as the fallback, but it is not inserted into every narrator action.
 
-This workflow is a long-term goal and is not currently complete.
+Manual overrides are always visually flagged so the player can tell an engine-calculated
+result from a manually forced value.
+
+The tool/action bridge is a future validate-then-execute phase and is not currently complete.
 
 ---
 
@@ -525,7 +524,8 @@ Planned:
 
 - Mechanical result injection.
 - Generation pause/resume.
-- Narrator → Engine → Narrator workflow.
+- Narrator requests action → Engine validates → Engine executes → Engine returns authoritative result → Narrator continues.
+- Tool/action bridge is a later validate-then-execute phase (not a two-pass pause/resume generation loop).
 - Configurable synchronization behavior.
 - Failure/recovery handling.
 

@@ -12,6 +12,11 @@ import {
   createStat,
   getBaseStatNames,
   getStatCap,
+  getBaseStats,
+  getTotalStats,
+  getStatLayers,
+  getMappedValues,
+  applyMapping,
   createCharacter,
   getStat,
   setStat,
@@ -369,6 +374,82 @@ section('Ruleset-specific definitions (Shattered Dominion / Kaelrath / D&D shape
 
   const kc = createCharacter(kae, { Strength: 3, Endurance: 5 });
   assertEqual(getEffectiveStats(kc, kae).HP, 56, 'Kaelrath HP derived value computes');
+}
+
+// =============================================================================
+section('Base vs Total/Effective distinction');
+// =============================================================================
+{
+  const rs = { base: { Resonance: {} }, derived: {} };
+  const c = createCharacter(rs, { Resonance: 62 });
+  addModifier(c, { stat: 'Resonance', amount: 8, permanent: true });
+
+  assertEqual(getStat(c, 'Resonance'), 62, 'base Resonance stays 62');
+  assertEqual(getBaseStats(c, rs).Resonance, 62, 'getBaseStats returns raw 62');
+  assertEqual(getTotalStats(c, rs).Resonance, 70, 'getTotalStats returns 70 (62+8)');
+  assertEqual(getEffectiveStats(c, rs).Resonance, 70, 'getEffectiveStats (back-compat) returns 70');
+  const layers = getStatLayers(c, rs);
+  assertEqual(layers.base.Resonance, 62, 'layers.base is raw 62');
+  assertEqual(layers.total.Resonance, 70, 'layers.total is 70');
+}
+
+// =============================================================================
+section('Formula references Base.X vs Total.X vs bare name');
+// =============================================================================
+{
+  const rs = {
+    base: { Resonance: {} },
+    derived: {
+      BaseOnly: { formula: 'Base.Resonance * 2' },
+      TotalOnly: { formula: 'Total.Resonance * 2' },
+      BareName: { formula: 'Resonance * 2' },
+    },
+  };
+  const c = createCharacter(rs, { Resonance: 62 });
+  addModifier(c, { stat: 'Resonance', amount: 8, permanent: true });
+  const eff = getEffectiveStats(c, rs);
+  assertEqual(eff.BaseOnly, 124, '"Base.Resonance * 2" uses 62 -> 124');
+  assertEqual(eff.TotalOnly, 140, '"Total.Resonance * 2" uses 70 -> 140');
+  assertEqual(eff.BareName, 140, 'bare "Resonance" resolves to total 70 -> 140');
+}
+
+// =============================================================================
+section('Cap and Potential are distinct from current value');
+// =============================================================================
+{
+  const rs = { base: { Resonance: { cap: 80 } }, derived: {} };
+  const c = createCharacter(rs, { Resonance: 70 });
+  assertEqual(getStat(c, 'Resonance'), 70, 'current value is 70');
+  assertEqual(getStatCap(rs, 'Resonance'), 80, 'cap is 80 (progression metadata)');
+  assertEqual(getTotalStats(c, rs).Resonance, 70, 'value is NOT clamped to cap 80');
+  const over = createCharacter(rs, { Resonance: 85 });
+  assert(validateCharacterStats(over, rs).some((v) => v.stat === 'Resonance'), 'value above numeric cap flags violation but is not auto-clamped');
+}
+
+// =============================================================================
+section('Configurable raw->modifier mappings');
+// =============================================================================
+{
+  const rs = {
+    base: { Strength: {} },
+    derived: {},
+    mappings: {
+      'Strength Mod': {
+        source: 'Strength',
+        table: [
+          { max: 1, value: -5 },
+          { min: 2, max: 3, value: -4 },
+          { min: 18, max: 19, value: 4 },
+        ],
+      },
+    },
+  };
+  const c = createCharacter(rs, { Strength: 18 });
+  assertEqual(getMappedValues(c, rs)['Strength Mod'], 4, 'Strength 18 maps to +4');
+  assertEqual(getStat(c, 'Strength'), 18, 'raw Strength stays 18 (mapped value is separate)');
+  assertEqual(getEffectiveStats(c, rs)['Strength Mod'], undefined, 'mapping is NOT merged into getEffectiveStats total');
+  addModifier(c, { stat: 'Strength', amount: 1, permanent: true });
+  assertEqual(getMappedValues(c, rs)['Strength Mod'], 4, 'Strength 19 still maps to +4 (18-19 band)');
 }
 
 // =============================================================================

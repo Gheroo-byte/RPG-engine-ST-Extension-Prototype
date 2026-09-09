@@ -152,11 +152,21 @@ function tokenize(formula) {
       continue;
     }
 
-    // Identifier (stat name): letters, digits, underscore, not starting with digit
+    // Identifier (stat name): letters, digits, underscore, not starting with digit.
+    // May be qualified: "Base.Strength", "Total.Resonance" (no whitespace).
     const identMatch = s.slice(i).match(/^[A-Za-z_][A-Za-z0-9_]*/);
     if (identMatch) {
-      tokens.push({ type: TOKEN_TYPES.IDENT, name: identMatch[0] });
-      i += identMatch[0].length;
+      let name = identMatch[0];
+      i += name.length;
+      const qualifierMatch = s.slice(i).match(/^\.([A-Za-z_][A-Za-z0-9_]*)/);
+      if (qualifierMatch) {
+        const qualifier = name;
+        name = qualifierMatch[1];
+        i += 1 + name.length;
+        tokens.push({ type: TOKEN_TYPES.IDENT, name, qualifier });
+      } else {
+        tokens.push({ type: TOKEN_TYPES.IDENT, name });
+      }
       continue;
     }
 
@@ -261,7 +271,12 @@ class Parser {
     }
     if (t.type === TOKEN_TYPES.IDENT) {
       this.next();
-      return { kind: 'stat', name: t.name };
+      return {
+        kind: 'stat',
+        name: t.name,
+        qualifier: t.qualifier ?? null,
+        label: t.qualifier ? `${t.qualifier}.${t.name}` : t.name,
+      };
     }
     if (t.type === TOKEN_TYPES.LPAREN) {
       this.next();
@@ -293,14 +308,8 @@ function evaluateNode(node, stats, diceRoller, breakdown) {
       return node.value;
 
     case 'stat': {
-      const key = Object.keys(stats).find(
-        (k) => k.toLowerCase() === node.name.toLowerCase()
-      );
-      if (key === undefined) {
-        throw new EngineError(`Unknown stat "${node.name}" - not present in supplied stats object`);
-      }
-      const value = stats[key];
-      breakdown.push({ label: key, value });
+      const value = lookupStat(stats, node.name, node.qualifier);
+      breakdown.push({ label: node.label, value });
       return value;
     }
 
@@ -354,10 +363,60 @@ function evaluateNode(node, stats, diceRoller, breakdown) {
 }
 
 function describeNode(node) {
-  if (node.kind === 'stat') return node.name;
+  if (node.kind === 'stat') return node.label ?? node.name;
   if (node.kind === 'dice') return node.raw;
   if (node.kind === 'num') return String(node.value);
   return '(...)';
+}
+
+/** Case-insensitive lookup of `name` in a flat value map. Returns undefined if absent. */
+function lookupIn(map, name) {
+  if (!map || typeof map !== 'object') return undefined;
+  const key = Object.keys(map).find((k) => String(k).toLowerCase() === name.toLowerCase());
+  return key === undefined ? undefined : map[key];
+}
+
+/**
+ * Resolve a stat reference, supporting qualified layers:
+ *   - `Base.X`   → raw base layer
+ *   - `Total.X`  → total/effective layer
+ *   - bare `X`   → total layer when `stats` is layered ({ base, total }), else flat map
+ *
+ * `stats` may be a flat { name: number } map (legacy / check rules) or a
+ * layered context { base: {..}, total: {..} }.
+ */
+function lookupStat(stats, name, qualifier) {
+  if (qualifier) {
+    const q = qualifier.toLowerCase();
+    if (q !== 'base' && q !== 'total') {
+      throw new EngineError(`Unknown stat qualifier "${qualifier}" - valid qualifiers are "Base" and "Total".`);
+    }
+    const layer = stats != null && typeof stats === 'object' ? stats[q] : undefined;
+    if (layer === undefined || typeof layer !== 'object' || layer === null) {
+      throw new EngineError(`Stat qualifier "${qualifier}" requires a layered stats context ({ base, total }).`);
+    }
+    const value = lookupIn(layer, name);
+    if (value === undefined) {
+      throw new EngineError(`Unknown stat "${qualifier}.${name}" - not present in the "${q}" layer.`);
+    }
+    return value;
+  }
+
+  // Layered context: bare name resolves from total, falling back to base.
+  if (stats && typeof stats === 'object' && stats !== null && typeof stats.total === 'object' && stats.total !== null) {
+    let value = lookupIn(stats.total, name);
+    if (value === undefined) value = lookupIn(stats.base, name);
+    if (value === undefined) {
+      throw new EngineError(`Unknown stat "${name}" - not present in the layered stats context.`);
+    }
+    return value;
+  }
+
+  const value = lookupIn(stats, name);
+  if (value === undefined) {
+    throw new EngineError(`Unknown stat "${name}" - not present in supplied stats object`);
+  }
+  return value;
 }
 
 /**
@@ -535,4 +594,5 @@ export {
   staticCheck,
   opposedCheck,
   formatResult,
+  TOKEN_TYPES,
 };

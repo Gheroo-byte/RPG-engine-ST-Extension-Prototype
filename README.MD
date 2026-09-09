@@ -48,18 +48,25 @@ The fast AI does not determine game mechanics or perform calculations.
 
 The RPG engine remains the authoritative source for mechanical results.
 
-### Narrative Resolution
+### Narrative Resolution — Engine Tools / Actions
 
-Mechanical actions follow a two-stage process:
+The intended narrative architecture is **Narrator ⇄ RPG Engine tools/actions**, not a two-pass,
+pause-and-resume generation loop. The narrator requests mechanical operations while generating;
+the engine resolves them authoritatively and returns a structured result the narrator can continue from:
 
-1. The narrator writes up to the point where an action requires mechanical resolution.
-2. Generation pauses.
-3. A fast AI identifies the mechanical action.
-4. The RPG engine resolves the action.
-5. The result is returned to the narrator.
-6. The narrator continues the scene using the actual mechanical result.
+1. Narrator requests an action (roll/check, attack, damage, use item, modify state, check stat, etc.).
+2. Engine validates the request.
+3. Engine executes it and computes the authoritative result.
+4. Engine returns the result to the narrator.
+5. Narrator continues naturally using the actual mechanical result.
 
-This prevents the narrator from describing an outcome before the RPG engine has determined it.
+The narrator stays responsible for prose, interpretation, and scene narration. The RPG engine stays
+responsible for authoritative mechanics, calculations, state, formulas, rolls, modifiers, and validation.
+
+Implementation of the tools/actions bridge is a later phase (validate-then-execute). A fast AI connection
+profile may be used for engine-side background tasks (intent detection, item parsing, ambiguous request
+interpretation, structured-data extraction) using the main narrator connection as the fallback, but it is
+not inserted into every narrator action.
 
 ## World Profiles
 
