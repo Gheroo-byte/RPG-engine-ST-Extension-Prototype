@@ -93,6 +93,9 @@ const defaultSettings = Object.freeze({
   characters: [],
   // selectedCharacterId: id of the character shown in the Formula Tester
   selectedCharacterId: null,
+  // customDice: { "d60": 60, ... } — persisted declaration of custom dice a
+  // world has registered (name -> sides). Standard dice are always available.
+  customDice: {},
   // aiSlots: seeded lazily by ai-store.js (getSlots). Kept out of the frozen
   // template so ai-store remains the single source of truth for slot defaults.
 });
@@ -601,6 +604,81 @@ function wireStatsDrawer() {
 }
 
 // =============================================================================
+// DICE DRAWER (custom dice registry)
+// =============================================================================
+
+/**
+ * Render the registered custom dice into `#rpg-custom-dice-list`.
+ * Reads persisted `settings.customDice` ({ "d60": 60, ... }).
+ */
+function renderCustomDiceList() {
+  const listEl = document.getElementById('rpg-custom-dice-list');
+  if (!listEl) return;
+
+  const settings = getSettings();
+  const entries = Object.entries(settings.customDice || {});
+
+  if (entries.length === 0) {
+    listEl.innerHTML = '<div class="rpg-empty-state">No custom dice registered.</div>';
+    return;
+  }
+
+  listEl.innerHTML = entries.map(([name, sides]) => `
+    <div class="rpg-dice-item" data-name="${escapeHtml(name)}">
+      <span class="rpg-dice-name">${escapeHtml(name)}</span>
+      <span class="rpg-dice-sides">d${sides}</span>
+    </div>
+  `).join('');
+}
+
+/**
+ * Wire the Dice drawer: enable the input + button, register custom dice,
+ * and render the list. Validation mirrors DiceRoller.registerDie: the name
+ * must match `dN` (case-insensitive) with N a positive integer > 0.
+ */
+function wireDiceDrawer() {
+  const input = document.getElementById('rpg-custom-die-name');
+  const button = document.getElementById('rpg-dice-add-custom');
+  if (!input || !button) {
+    console.warn(`[${MODULE_NAME}] Dice drawer elements not found - skipping wiring.`);
+    return;
+  }
+
+  input.disabled = false;
+  button.disabled = false;
+  renderCustomDiceList();
+
+  const register = () => {
+    const raw = input.value.trim();
+    const match = raw.match(/^d(\d+)$/i);
+    if (!match) {
+      input.setCustomValidity('Enter a die name like "d60" (d followed by digits).');
+      input.reportValidity();
+      return;
+    }
+    const sides = parseInt(match[1], 10);
+    if (!Number.isInteger(sides) || sides < 1) {
+      input.setCustomValidity('Die sides must be a positive whole number (d0 is invalid).');
+      input.reportValidity();
+      return;
+    }
+
+    input.setCustomValidity('');
+    const settings = getSettings();
+    if (!settings.customDice) settings.customDice = {};
+    settings.customDice[`d${sides}`] = sides;
+    saveSettings();
+    input.value = '';
+    renderCustomDiceList();
+  };
+
+  button.addEventListener('click', register);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') register();
+  });
+}
+
+// =============================================================================
 // FORMULA TESTER
 // =============================================================================
 
@@ -645,7 +723,8 @@ function wireFormulaTester() {
 
     try {
       const stats = getFormulaTesterStats();
-      const { total, breakdown } = evaluateFormula(formula, stats, new DiceRoller());
+      const diceRoller = new DiceRoller(getSettings().customDice || {});
+      const { total, breakdown } = evaluateFormula(formula, stats, diceRoller);
       const lines = breakdown.map((b) => {
         const sign = typeof b.value === 'number' && b.value >= 0 ? '+' : '';
         return `${b.label}: ${sign}${b.value}`;
@@ -815,6 +894,7 @@ async function init() {
     wireMasterToggle();
     wireCharactersDrawer();
     wireStatsDrawer();
+    wireDiceDrawer();
     wireFormulaTester();
     wireAiSlotsDrawer();
     renderConnectionStatus();

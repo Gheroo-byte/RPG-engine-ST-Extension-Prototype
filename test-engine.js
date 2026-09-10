@@ -92,6 +92,38 @@ section('Dice: range and statistical sanity');
 }
 
 // =============================================================================
+section('Dice: custom die registration (registerDie)');
+// =============================================================================
+{
+  const roller = new DiceRoller();
+
+  // valid registration (case-insensitive name) stores normalized lowercase name
+  roller.registerDie('d60', 60);
+  assertEqual(roller.customDice['d60'], 60, 'registerDie("d60") stores sides 60');
+  roller.registerDie('D100', 100);
+  assertEqual(roller.customDice['d100'], 100, 'registerDie("D100") normalizes name to lowercase');
+
+  // invalid names are rejected
+  try {
+    roller.registerDie('banana', 10);
+    assert(false, 'registerDie with non-dice name should throw');
+  } catch (e) {
+    assert(e instanceof EngineError, 'registerDie rejects non-dice name (EngineError)');
+  }
+  try {
+    roller.registerDie('d60x', 60);
+    assert(false, 'registerDie with trailing junk should throw');
+  } catch (e) {
+    assert(e instanceof EngineError, 'registerDie rejects malformed "d60x"');
+  }
+
+  // standard dice roll behavior is unchanged by registration
+  const { rolls, total } = roller.roll(3, 6);
+  assertEqual(rolls.length, 3, 'roll(3, 6) still returns 3 rolls');
+  assert(total >= 3 && total <= 18, 'roll(3, 6) total stays within 3..18 (3d6)');
+}
+
+// =============================================================================
 section('Formula parsing: design doc examples');
 // =============================================================================
 {
