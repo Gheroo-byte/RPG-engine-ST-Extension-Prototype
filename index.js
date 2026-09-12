@@ -879,6 +879,577 @@ function wireAiSlotsDrawer() {
 }
 
 // =============================================================================
+// WAND ENTRY + POPUP (four-tab control center)
+// =============================================================================
+// The popup is a separate template from settings.html and uses distinct
+// `rpg-popup-*` IDs so it never collides with the legacy settings panel,
+// which remains fully functional. These popup-specific functions reuse the
+// shared engine/settings helpers but do NOT call the legacy `wire*`/`render*`
+// Drawer functions (those target settings.html IDs).
+
+/**
+ * Append an "RPG Engine" entry into SillyTavern's Wand/Extensions menu
+ * (#extensionsMenu). This is the verified third-party pattern (see Memory
+ * Books): a plain DOM append into the global menu element, retried until the
+ * menu exists.
+ */
+function createWandEntry() {
+  const menu = document.getElementById('extensionsMenu');
+  if (!menu) {
+    setTimeout(createWandEntry, 500);
+    return;
+  }
+  if (document.getElementById('rpg-menu-item-container')) return;
+
+  menu.insertAdjacentHTML('beforeend', `
+    <div id="rpg-menu-item-container" class="extension_container interactable" tabindex="0">
+      <div id="rpg-menu-item" class="list-group-item flex-container flexGap5 interactable" tabindex="0">
+        <div class="fa-fw fa-solid fa-dice-d20 extensionsMenuExtensionButton"></div>
+        <span>RPG Engine</span>
+      </div>
+    </div>
+  `);
+}
+
+/** Toggle tab visibility + active styling within the popup root. */
+function popupSwitchTab(root, tabName) {
+  root.querySelectorAll('.rpg-tab').forEach((t) => {
+    t.classList.toggle('rpg-tab-active', t.dataset.tab === tabName);
+  });
+  root.querySelectorAll('.rpg-tab-panel').forEach((p) => {
+    p.classList.toggle('rpg-tab-panel-active', p.dataset.panel === tabName);
+  });
+}
+
+/** Wire the popup tab bar (popup-scoped). */
+function popupWireTabs(root) {
+  root.querySelectorAll('.rpg-tab').forEach((tab) => {
+    tab.addEventListener('click', () => popupSwitchTab(root, tab.dataset.tab));
+  });
+}
+
+/** Wire the popup's collapsible drawers (popup-scoped). */
+function popupWireDrawers(root) {
+  root.querySelectorAll('.rpg-drawer').forEach((drawer) => {
+    const toggle = drawer.querySelector('.rpg-drawer-toggle');
+    if (!toggle) return;
+    toggle.addEventListener('click', () => drawer.classList.toggle('open'));
+  });
+}
+
+/** Render the popup "Current World" overview from real persisted state. */
+function popupRenderWorldOverview(root) {
+  const overview = root.querySelector('#rpg-popup-world-overview');
+  if (!overview) return;
+
+  const settings = getSettings();
+  const ruleset = getActiveRuleSet();
+
+  if (!ruleset) {
+    overview.innerHTML = `
+      <div class="rpg-world-card">
+        <div class="rpg-world-name">No World Selected</div>
+        <div class="rpg-world-id">Start a world to begin tracking stats and dice.</div>
+        <div class="rpg-world-facts">
+          <span class="rpg-world-fact">No active ruleset</span>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  const baseNames = getBaseStatNames(ruleset);
+  const derivedNames = Object.keys(ruleset.derived ?? {});
+  const customDice = Object.keys(settings.customDice ?? {});
+  const charCount = (settings.characters ?? []).filter((c) => c.ruleset === ruleset.id).length;
+
+  overview.innerHTML = `
+    <div class="rpg-world-card">
+      <div class="rpg-world-name">${escapeHtml(ruleset.displayName || ruleset.id)}</div>
+      <div class="rpg-world-id">${escapeHtml(ruleset.id)}</div>
+      <div class="rpg-world-facts">
+        <span class="rpg-world-fact">${baseNames.length} base stats</span>
+        <span class="rpg-world-fact">${derivedNames.length} derived stats</span>
+        <span class="rpg-world-fact">${customDice.length} custom dice</span>
+        <span class="rpg-world-fact">${charCount} characters</span>
+      </div>
+    </div>
+    <div class="rpg-world-card">
+      <div class="rpg-world-name" style="font-size:0.95em;">Base Stats</div>
+      <div class="rpg-world-facts">
+        ${baseNames.length ? baseNames.map((n) => `<span class="rpg-world-fact">${escapeHtml(n)}</span>`).join('') : '<span class="rpg-world-fact">none</span>'}
+      </div>
+    </div>
+    <div class="rpg-world-card">
+      <div class="rpg-world-name" style="font-size:0.95em;">Derived Stats</div>
+      <div class="rpg-world-facts">
+        ${derivedNames.length ? derivedNames.map((n) => `<span class="rpg-world-fact">${escapeHtml(n)}</span>`).join('') : '<span class="rpg-world-fact">none</span>'}
+      </div>
+    </div>
+  `;
+}
+
+/** Render the popup connection status (popup-scoped). */
+function popupRenderConnectionStatus(root) {
+  const statusEl = root.querySelector('#rpg-popup-connection-status');
+  if (!statusEl) return;
+  try {
+    const context = SillyTavern.getContext();
+    const chatId = context.chatId ?? '(no active chat)';
+    const characterName = context.characters?.[context.characterId]?.name ?? '(no character loaded)';
+    statusEl.innerHTML = `
+      <span class="rpg-status-ok">● Connected</span>
+      <span class="rpg-status-detail">Character: ${escapeHtml(characterName)}</span>
+      <span class="rpg-status-detail">Chat ID: ${escapeHtml(String(chatId))}</span>
+    `;
+  } catch (err) {
+    statusEl.innerHTML = `<span class="rpg-status-error">● Connection error</span><span class="rpg-status-detail">${escapeHtml(err.message || String(err))}</span>`;
+  }
+}
+
+/** Render the popup master-toggle state (popup-scoped). */
+function popupWireMasterToggle(root) {
+  const toggle = root.querySelector('#rpg-popup-master-toggle');
+  if (!toggle) return;
+  const settings = getSettings();
+  toggle.checked = settings.enabled;
+  toggle.addEventListener('change', () => {
+    settings.enabled = toggle.checked;
+    saveSettings();
+  });
+}
+
+/** Render the popup ruleset selector (popup-scoped). */
+function popupRenderWorldSelector(root) {
+  const select = root.querySelector('#rpg-popup-world-profile-select');
+  const summary = root.querySelector('#rpg-popup-world-summary');
+  if (!select) return;
+
+  const settings = getSettings();
+  const options = Object.values(settings.rulesets || {})
+    .map((r) => `<option value="${escapeHtml(r.id)}" ${r.id === settings.activeRuleset ? 'selected' : ''}>${escapeHtml(r.displayName)}</option>`)
+    .join('');
+  select.innerHTML = options;
+  select.disabled = false;
+  if (summary) {
+    const active = getActiveRuleSet();
+    summary.textContent = active ? active.displayName : 'No profile loaded';
+  }
+}
+
+/** Wire the popup ruleset selector change (popup-scoped). */
+function popupWireWorldSelector(root) {
+  const select = root.querySelector('#rpg-popup-world-profile-select');
+  if (!select) return;
+  select.addEventListener('change', () => {
+    const settings = getSettings();
+    settings.activeRuleset = select.value;
+    saveSettings();
+    popupRenderWorldSelector(root);
+    popupRenderWorldOverview(root);
+    popupRenderStatsList(root);
+    popupRenderDerivedList(root);
+    popupRenderCharactersList(root);
+  });
+}
+
+/** Render the popup stats list (popup-scoped). */
+function popupRenderStatsList(root) {
+  const listEl = root.querySelector('#rpg-popup-stats-list');
+  const summaryEl = root.querySelector('#rpg-popup-stats-summary');
+  if (!listEl) return;
+
+  const ruleset = getActiveRuleSet();
+  const statNames = getBaseStatNames(ruleset);
+  if (summaryEl) summaryEl.textContent = `${statNames.length} stats defined`;
+
+  if (!ruleset || statNames.length === 0) {
+    listEl.innerHTML = '<div class="rpg-empty-state">No stats defined.</div>';
+    return;
+  }
+
+  listEl.innerHTML = statNames.map((name) => `
+    <div class="rpg-stat-def-item" data-name="${escapeHtml(name)}">
+      <div class="rpg-button-row" style="margin-top: 4px;">
+        <button class="rpg-btn rpg-btn-small rpg-popup-stat-rename" data-stat="${escapeHtml(name)}">Rename</button>
+        <button class="rpg-btn rpg-btn-small rpg-btn-danger rpg-popup-stat-delete" data-stat="${escapeHtml(name)}">Delete</button>
+      </div>
+    </div>
+  `).join('');
+
+  listEl.querySelectorAll('.rpg-popup-stat-rename').forEach((btn) => {
+    btn.addEventListener('click', () => popupRenameStat(root, btn.dataset.stat));
+  });
+  listEl.querySelectorAll('.rpg-popup-stat-delete').forEach((btn) => {
+    btn.addEventListener('click', () => popupDeleteStat(root, btn.dataset.stat));
+  });
+}
+
+/** Render the popup derived-stats list (popup-scoped, read-only). */
+function popupRenderDerivedList(root) {
+  const listEl = root.querySelector('#rpg-popup-derived-list');
+  const summaryEl = root.querySelector('#rpg-popup-derived-summary');
+  if (!listEl) return;
+
+  const ruleset = getActiveRuleSet();
+  const derived = Object.keys(ruleset?.derived ?? {});
+  if (summaryEl) summaryEl.textContent = `${derived.length} derived stats`;
+
+  if (derived.length === 0) {
+    listEl.innerHTML = '<div class="rpg-empty-state">No derived stats defined.</div>';
+    return;
+  }
+
+  listEl.innerHTML = derived.map((name) => `
+    <div class="rpg-stat-def-item">
+      <span class="rpg-dice-name">${escapeHtml(name)}</span>
+      <div class="rpg-placeholder-note">formula: ${escapeHtml(ruleset.derived[name].formula)}</div>
+    </div>
+  `).join('');
+}
+
+/** Add a base stat to the active ruleset (popup-scoped). */
+function popupAddStat(root) {
+  const ruleset = getActiveRuleSet();
+  if (!ruleset) return;
+  let name = 'NewStat';
+  let i = 1;
+  while (Object.hasOwn(ruleset.base, name)) name = `NewStat${i++}`;
+  ruleset.base[name] = {};
+  saveSettings();
+  popupRenderStatsList(root);
+  popupRenderWorldOverview(root);
+}
+
+/** Rename a base stat (popup-scoped). */
+function popupRenameStat(root, oldName) {
+  const settings = getSettings();
+  const ruleset = getActiveRuleSet();
+  if (!ruleset?.base || !Object.hasOwn(ruleset.base, oldName)) return;
+  const newName = prompt(`Rename "${oldName}" to:`, oldName);
+  if (!newName || newName.trim() === '' || newName === oldName) return;
+  const trimmed = newName.trim();
+  if (Object.hasOwn(ruleset.base, trimmed)) { alert('A stat with that name already exists.'); return; }
+  ruleset.base[trimmed] = ruleset.base[oldName];
+  delete ruleset.base[oldName];
+  settings.characters.forEach((char) => {
+    if (char.ruleset === settings.activeRuleset && char.base && Object.hasOwn(char.base, oldName)) {
+      char.base[trimmed] = char.base[oldName];
+      delete char.base[oldName];
+    }
+  });
+  saveSettings();
+  popupRenderStatsList(root);
+  popupRenderCharactersList(root);
+  popupRenderWorldOverview(root);
+}
+
+/** Delete a base stat (popup-scoped). */
+function popupDeleteStat(root, statName) {
+  const settings = getSettings();
+  const ruleset = getActiveRuleSet();
+  if (!ruleset?.base || !Object.hasOwn(ruleset.base, statName)) return;
+  if (!confirm(`Delete stat "${statName}"? This will remove it from all characters in this ruleset.`)) return;
+  delete ruleset.base[statName];
+  settings.characters.forEach((char) => {
+    if (char.ruleset === settings.activeRuleset && char.base) delete char.base[statName];
+  });
+  saveSettings();
+  popupRenderStatsList(root);
+  popupRenderCharactersList(root);
+  popupRenderWorldOverview(root);
+}
+
+/** Wire the popup stats add button (popup-scoped). */
+function popupWireStats(root) {
+  const addBtn = root.querySelector('#rpg-popup-stats-add');
+  if (addBtn) {
+    addBtn.disabled = false;
+    addBtn.addEventListener('click', () => popupAddStat(root));
+  }
+}
+
+/** Render the popup custom dice list (popup-scoped; preserves d60 registration). */
+function popupRenderCustomDiceList(root) {
+  const listEl = root.querySelector('#rpg-popup-custom-dice-list');
+  if (!listEl) return;
+  const settings = getSettings();
+  const entries = Object.entries(settings.customDice || {});
+  if (entries.length === 0) {
+    listEl.innerHTML = '<div class="rpg-empty-state">No custom dice registered.</div>';
+    return;
+  }
+  listEl.innerHTML = entries.map(([name, sides]) => `
+    <div class="rpg-dice-item" data-name="${escapeHtml(name)}">
+      <span class="rpg-dice-name">${escapeHtml(name)}</span>
+      <span class="rpg-dice-sides">d${sides}</span>
+    </div>
+  `).join('');
+}
+
+/** Wire the popup custom die registration (popup-scoped; mirrors e7c6acf). */
+function popupWireDice(root) {
+  const input = root.querySelector('#rpg-popup-custom-die-name');
+  const button = root.querySelector('#rpg-popup-dice-add-custom');
+  if (!input || !button) return;
+
+  input.disabled = false;
+  button.disabled = false;
+  popupRenderCustomDiceList(root);
+
+  const register = () => {
+    const raw = input.value.trim();
+    const match = raw.match(/^d(\d+)$/i);
+    if (!match) {
+      input.setCustomValidity('Enter a die name like "d60" (d followed by digits).');
+      input.reportValidity();
+      return;
+    }
+    const sides = parseInt(match[1], 10);
+    if (!Number.isInteger(sides) || sides < 1) {
+      input.setCustomValidity('Die sides must be a positive whole number (d0 is invalid).');
+      input.reportValidity();
+      return;
+    }
+    input.setCustomValidity('');
+    const settings = getSettings();
+    if (!settings.customDice) settings.customDice = {};
+    settings.customDice[`d${sides}`] = sides;
+    saveSettings();
+    input.value = '';
+    popupRenderCustomDiceList(root);
+  };
+
+  button.addEventListener('click', register);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') register(); });
+}
+
+/** Render the popup characters list (popup-scoped). */
+function popupRenderCharactersList(root) {
+  const listEl = root.querySelector('#rpg-popup-character-list');
+  const summaryEl = root.querySelector('#rpg-popup-characters-summary');
+  if (!listEl) return;
+
+  const settings = getSettings();
+  const characters = settings.characters;
+  if (summaryEl) summaryEl.textContent = characters.length === 1 ? '1 character' : `${characters.length} characters`;
+
+  if (characters.length === 0) {
+    listEl.innerHTML = '<div class="rpg-empty-state">No characters tracked yet.</div>';
+    return;
+  }
+
+  listEl.innerHTML = characters.map((char) => {
+    const statChips = Object.entries(char.base || {}).map(([k, def]) => {
+      const v = def && typeof def === 'object' ? def.value ?? def : def;
+      return `<span class="rpg-stat-chip">${escapeHtml(k)}: ${v}</span>`;
+    }).join('');
+    return `
+      <div class="rpg-character-item" data-id="${escapeHtml(char.id)}">
+        <div class="rpg-character-header">
+          <span class="rpg-character-name">${escapeHtml(char.name)}</span>
+          <span class="rpg-character-world">${escapeHtml(getRuleSet(char.ruleset)?.displayName || char.ruleset)}</span>
+        </div>
+        <div class="rpg-character-stats-preview">${statChips}</div>
+        <div class="rpg-character-actions">
+          <button class="rpg-btn rpg-btn-small rpg-popup-char-edit" data-id="${escapeHtml(char.id)}">Edit</button>
+          <button class="rpg-btn rpg-btn-small rpg-btn-danger rpg-popup-char-delete" data-id="${escapeHtml(char.id)}">Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  listEl.querySelectorAll('.rpg-popup-char-edit').forEach((btn) => {
+    btn.addEventListener('click', () => popupOpenCharacterEditor(root, btn.dataset.id));
+  });
+  listEl.querySelectorAll('.rpg-popup-char-delete').forEach((btn) => {
+    btn.addEventListener('click', () => popupDeleteCharacter(root, btn.dataset.id));
+  });
+}
+
+/** Add a character (popup-scoped; keeps settings panel untouched). */
+function popupOpenCharacterEditor(root, id) {
+  const char = getCharacterById(id);
+  const isNew = !char;
+  const editorRuleSet = (char?.ruleset && getRuleSet(char.ruleset)) || getActiveRuleSet();
+  const statNames = getBaseStatNames(editorRuleSet);
+  const statsHtml = statNames.map((name) => {
+    const value = char?.base?.[name]?.value ?? 0;
+    return `
+      <div class="rpg-stat-input-row">
+        <label>${escapeHtml(name)}</label>
+        <input type="number" class="rpg-input-full rpg-stat-value" data-stat="${escapeHtml(name)}" value="${value}" step="1">
+      </div>
+    `;
+  }).join('');
+
+  const settings = getSettings();
+  const worldSelectValue = char?.ruleset ?? settings.activeRuleset;
+  const rulesetOptions = Object.values(settings.rulesets || {})
+    .map((r) => `<option value="${escapeHtml(r.id)}" ${r.id === worldSelectValue ? 'selected' : ''}>${escapeHtml(r.displayName)}</option>`)
+    .join('');
+
+  const modalHtml = `
+    <div id="rpg-popup-char-modal" class="rpg-modal-overlay">
+      <div class="rpg-modal">
+        <h3>${isNew ? 'Add Character' : 'Edit Character'}</h3>
+        <div class="rpg-form-group"><label for="rpg-popup-char-name">Name</label>
+          <input type="text" id="rpg-popup-char-name" class="rpg-input-full" value="${escapeHtml(char?.name || '')}" placeholder="Character name"></div>
+        <div class="rpg-form-group"><label for="rpg-popup-char-world">Ruleset</label>
+          <select id="rpg-popup-char-world" class="rpg-input-full" ${!isNew ? 'disabled' : ''}>${rulesetOptions}</select></div>
+        <div class="rpg-form-group"><label>Stats</label><div id="rpg-popup-char-stats-inputs">${statsHtml}</div></div>
+        <div class="rpg-button-row">
+          <button id="rpg-popup-char-save" class="rpg-btn">${isNew ? 'Add' : 'Save'}</button>
+          <button id="rpg-popup-char-cancel" class="rpg-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+  const modal = document.getElementById('rpg-popup-char-modal');
+  const saveBtn = document.getElementById('rpg-popup-char-save');
+  const cancelBtn = document.getElementById('rpg-popup-char-cancel');
+  const nameInput = document.getElementById('rpg-popup-char-name');
+  const worldSelect = document.getElementById('rpg-popup-char-world');
+  const closeModal = () => modal.remove();
+
+  saveBtn.addEventListener('click', () => {
+    const name = nameInput.value.trim();
+    if (!name) { alert('Name is required'); return; }
+    const s = getSettings();
+    if (isNew) {
+      const base = {};
+      modal.querySelectorAll('.rpg-stat-value').forEach((inp) => { base[inp.dataset.stat] = { value: parseFloat(inp.value) || 0 }; });
+      s.characters.push({ id: generateId(), name, ruleset: worldSelect.value, base, resources: {}, effects: [] });
+    } else {
+      char.name = name;
+      if (!char.base) char.base = {};
+      modal.querySelectorAll('.rpg-stat-value').forEach((inp) => {
+        const sn = inp.dataset.stat;
+        if (!char.base[sn]) char.base[sn] = { value: 0 };
+        char.base[sn].value = parseFloat(inp.value) || 0;
+      });
+    }
+    saveSettings();
+    popupRenderCharactersList(root);
+    popupRenderWorldOverview(root);
+    closeModal();
+  });
+
+  cancelBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBtn.click(); });
+}
+
+/** Delete a character (popup-scoped). */
+function popupDeleteCharacter(root, id) {
+  if (!confirm('Delete this character? This cannot be undone.')) return;
+  const settings = getSettings();
+  settings.characters = settings.characters.filter((c) => c.id !== id);
+  if (settings.selectedCharacterId === id) settings.selectedCharacterId = settings.characters[0]?.id || null;
+  saveSettings();
+  popupRenderCharactersList(root);
+  popupRenderWorldOverview(root);
+}
+
+/** Wire the popup characters add button (popup-scoped). */
+function popupWireCharacters(root) {
+  const addBtn = root.querySelector('#rpg-popup-char-add');
+  if (addBtn) {
+    addBtn.disabled = false;
+    addBtn.addEventListener('click', () => popupOpenCharacterEditor(root, null));
+  }
+}
+
+/** Render the popup formula-tester preview (popup-scoped). */
+function popupRenderFormulaPreview(root) {
+  const previewEl = root.querySelector('#rpg-popup-formula-test-stats-preview');
+  if (!previewEl) return;
+  const stats = getFormulaTesterStats();
+  const entries = Object.entries(stats);
+  if (entries.length === 0) {
+    previewEl.innerHTML = '<span class="rpg-empty-state">No stats available</span>';
+    return;
+  }
+  previewEl.innerHTML = entries.map(([k, v]) => `<span class="rpg-stat-chip">${escapeHtml(k)}: ${v}</span>`).join('');
+}
+
+/** Wire the popup formula tester (popup-scoped; reuses DiceRoller/evaluateFormula). */
+function popupWireFormulaTester(root) {
+  const input = root.querySelector('#rpg-popup-formula-test-input');
+  const button = root.querySelector('#rpg-popup-formula-test-run');
+  const output = root.querySelector('#rpg-popup-formula-test-output');
+  if (!input || !button || !output) return;
+
+  input.disabled = false;
+  button.disabled = false;
+  popupRenderFormulaPreview(root);
+
+  const runTest = () => {
+    const formula = input.value.trim();
+    if (!formula) { output.textContent = '// enter a formula above, e.g. d60 + INT + 0.5*BLS'; return; }
+    try {
+      const stats = getFormulaTesterStats();
+      const diceRoller = new DiceRoller(getSettings().customDice || {});
+      const { total, breakdown } = evaluateFormula(formula, stats, diceRoller);
+      const lines = breakdown.map((b) => {
+        const sign = typeof b.value === 'number' && b.value >= 0 ? '+' : '';
+        return `${b.label}: ${sign}${b.value}`;
+      });
+      lines.push(`Total: ${total}`);
+      output.textContent = lines.join('\n');
+    } catch (err) {
+      output.textContent = `Error: ${err?.message || String(err)}`;
+    }
+  };
+
+  button.addEventListener('click', runTest);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') runTest(); });
+}
+
+/**
+ * Open the four-tab RPG Engine popup. Renders popup.html into a SillyTavern
+ * Popup (TEXT type, large/wide/vertical-scrolling), then wires the popup-scoped
+ * tabs, drawers, and read-through/writes against the popup DOM only.
+ */
+async function openRpgPopup() {
+  const context = SillyTavern.getContext();
+  const html = await context.renderExtensionTemplateAsync(EXTENSION_FOLDER, 'popup', {});
+  const content = $('<div></div>').append(html);
+
+  const popup = new context.Popup(content, context.POPUP_TYPE.TEXT, '', {
+    wide: true,
+    large: true,
+    allowVerticalScrolling: true,
+    okButton: false,
+    cancelButton: 'Close',
+  });
+
+  await popup.show();
+
+  const root = popup.content;
+
+  popupWireTabs(root);
+  popupWireDrawers(root);
+  popupWireMasterToggle(root);
+  popupWireWorldSelector(root);
+  popupWireStats(root);
+  popupWireDice(root);
+  popupWireCharacters(root);
+  popupWireFormulaTester(root);
+
+  popupRenderWorldOverview(root);
+  popupRenderConnectionStatus(root);
+  popupRenderWorldSelector(root);
+  popupRenderStatsList(root);
+  popupRenderDerivedList(root);
+  popupRenderCustomDiceList(root);
+  popupRenderCharactersList(root);
+}
+
+// =============================================================================
 // INITIALIZATION
 // =============================================================================
 
@@ -907,6 +1478,10 @@ async function init() {
       eventSource.on(event_types.MESSAGE_RECEIVED, renderConnectionStatus);
       eventSource.on(event_types.APP_READY, renderConnectionStatus);
     }
+
+    // Register the Wand menu entry and bind it to open the popup control center.
+    createWandEntry();
+    $(document).on('click', '#rpg-menu-item', openRpgPopup);
 
     console.log(`[${MODULE_NAME}] Loaded successfully.`);
   } catch (err) {

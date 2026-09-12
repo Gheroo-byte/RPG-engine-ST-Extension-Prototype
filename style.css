@@ -456,9 +456,280 @@ select {
   min-height: 32px;
 }
 
+/* =============================================================================
+ * Popup (Wand-launched) — four-tab control center
+ * ============================================================================= */
+
+.rpg-popup-root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* ---- Tab bar ---- */
+
+.rpg-tabbar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 4px;
+  background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.rpg-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  justify-content: center;
+  min-height: 52px;
+  padding: 8px 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--SmartThemeBodyColor, #ddd);
+  font-size: 0.8em;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rpg-tab:active {
+  background: rgba(128, 128, 128, 0.15);
+}
+
+.rpg-tab-active {
+  background: linear-gradient(135deg, rgba(198, 163, 93, 0.22), rgba(150, 110, 235, 0.22));
+  border-color: #c6a35d;
+  color: #e8d9b0;
+}
+
+/* ---- Tab panels ---- */
+
+.rpg-tab-panel {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.rpg-tab-panel-active {
+  display: flex;
+}
+
+/* ---- Current World overview ---- */
+
+.rpg-world-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rpg-world-card {
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.02));
+}
+
+.rpg-world-name {
+  font-size: 1.2em;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.rpg-world-id {
+  opacity: 0.55;
+  font-size: 0.8em;
+  margin-bottom: 10px;
+}
+
+.rpg-world-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rpg-world-fact {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--SmartThemeQuoteColor, #2a2a2a);
+  border: 1px solid var(--SmartThemeBorderColor, #555);
+  font-size: 0.8em;
+  white-space: nowrap;
+}
+
+/* ---- AI Assistant shell (placeholder) ---- */
+
+.rpg-assistant-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 280px;
+}
+
+.rpg-assistant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rpg-assistant-title {
+  font-weight: 700;
+  font-size: 1.05em;
+}
+
+.rpg-assistant-chat {
+  flex: 1;
+  min-height: 160px;
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.15);
+  overflow-y: auto;
+}
+
+.rpg-assistant-inputrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ---- Badges ---- */
+
+.rpg-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.72em;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rpg-badge-wip {
+  background: rgba(128, 128, 128, 0.2);
+  border: 1px solid var(--SmartThemeBorderColor, #555);
+  color: var(--SmartThemeBodyColor, #ddd);
+}
+
+.rpg-badge-live {
+  background: rgba(76, 175, 80, 0.18);
+  border: 1px solid #4caf50;
+  color: #a5d6a7;
+}
+
+/* ---- AI Hub ---- */
+
+.rpg-aihub {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rpg-aihub-master {
+  border: 1px solid #c6a35d;
+  border-radius: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(198, 163, 93, 0.10), rgba(150, 110, 235, 0.10));
+}
+
+.rpg-aihub-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #e8d9b0;
+}
+
+.rpg-aihub-master-header {
+  margin-bottom: 6px;
+}
+
+.rpg-aihub-label {
+  display: block;
+  font-size: 0.82em;
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+
+.rpg-aihub-function {
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.02));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rpg-aihub-fn-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rpg-aihub-fn-name {
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+/* ---- Nested drawer within a section ---- */
+
+.rpg-drawer-toggle-nested {
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+
+.rpg-drawer-toggle-nested:hover {
+  border-color: var(--SmartThemeBorderColor, #555);
+}
+
+/* ---- Dice item (custom dice list) ---- */
+
+.rpg-dice-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--SmartThemeBorderColor, #444);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: var(--SmartThemeBlurTintColor, rgba(255, 255, 255, 0.02));
+}
+
+.rpg-dice-name {
+  font-weight: 600;
+  color: #c6a35d;
+}
+
+.rpg-dice-sides {
+  margin-left: auto;
+  opacity: 0.6;
+  font-size: 0.8em;
+}
+
 /* ---- Small-screen tightening (phones narrower than ~400px) ---- */
 
 @media (max-width: 400px) {
+  .rpg-tab {
+    min-height: 56px;
+    font-size: 0.72em;
+  }
+
   .rpg-drawer-summary {
     display: none;   /* on very narrow screens, drop the summary text rather than truncate awkwardly */
   }

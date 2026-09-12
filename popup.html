@@ -1,0 +1,260 @@
+<div id="rpg-popup-root" class="rpg-popup-root">
+
+  <div class="rpg-tabbar" role="tablist">
+    <button type="button" class="rpg-tab rpg-tab-active" data-tab="current-world" role="tab">🌎 World</button>
+    <button type="button" class="rpg-tab" data-tab="assistant" role="tab">🤖 Assistant</button>
+    <button type="button" class="rpg-tab" data-tab="manual" role="tab">⚙️ Manual</button>
+    <button type="button" class="rpg-tab" data-tab="ai-hub" role="tab">🧠 AI Hub</button>
+  </div>
+
+  <!-- ============================================================= -->
+  <!-- TAB 1 — CURRENT WORLD -->
+  <!-- ============================================================= -->
+  <section class="rpg-tab-panel rpg-tab-panel-active" data-panel="current-world">
+    <div id="rpg-popup-world-overview" class="rpg-world-overview"></div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- TAB 2 — AI ASSISTANT (placeholder) -->
+  <!-- ============================================================= -->
+  <section class="rpg-tab-panel" data-panel="assistant">
+    <div class="rpg-assistant-shell">
+      <div class="rpg-assistant-header">
+        <span class="rpg-assistant-title">🤖 AI Assistant</span>
+        <span class="rpg-badge rpg-badge-wip">Not implemented</span>
+      </div>
+      <div class="rpg-assistant-chat">
+        <div class="rpg-empty-state">The RPG Engine assistant will let you configure the engine conversationally — e.g. “make this world use d60s” or “add a Resonance stat with a cap of 100”. Coming soon.</div>
+      </div>
+      <div class="rpg-assistant-inputrow">
+        <input type="text" class="rpg-input-full" placeholder="Ask the assistant to configure the engine…" disabled>
+        <button type="button" class="rpg-btn" disabled>Send</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- TAB 3 — MANUAL -->
+  <!-- ============================================================= -->
+  <section class="rpg-tab-panel" data-panel="manual">
+
+    <div class="rpg-drawer" data-section="master">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">🎲 RPG Engine</span>
+        <span class="rpg-drawer-summary">World-agnostic mechanics engine</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <div class="rpg-engine-header">
+          <label class="checkbox_label">
+            <input type="checkbox" id="rpg-popup-master-toggle" checked>
+            <span>Enabled</span>
+          </label>
+        </div>
+        <div class="rpg-engine-subtitle">World-agnostic mechanics engine. Configure a world below to get started.</div>
+        <div id="rpg-popup-connection-status" class="rpg-connection-status">
+          <span class="rpg-status-detail">Connecting...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORLD / RULESET -->
+    <div class="rpg-drawer" data-section="world">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">🌎 World / Ruleset</span>
+        <span class="rpg-drawer-summary" id="rpg-popup-world-summary">No profile loaded</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <label for="rpg-popup-world-profile-select">Active Ruleset</label>
+        <select id="rpg-popup-world-profile-select" class="rpg-input-full" disabled>
+          <option value="">-- No rulesets yet --</option>
+        </select>
+        <p class="rpg-placeholder-note">Switch between the bundled rulesets (Kaelrath, Shattered Dominion, D&amp;D).</p>
+      </div>
+    </div>
+
+    <!-- DICE -->
+    <div class="rpg-drawer" data-section="dice">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">🎲 Dice</span>
+        <span class="rpg-drawer-summary">d4 d6 d8 d10 d12 d20 d100 (standard)</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <p class="rpg-section-desc">Standard dice are always available. Register custom dice (e.g. d60) for worlds that need them.</p>
+        <div id="rpg-popup-custom-dice-list" class="rpg-dice-list">
+          <div class="rpg-empty-state">No custom dice registered.</div>
+        </div>
+        <div class="rpg-button-row">
+          <input type="text" id="rpg-popup-custom-die-name" placeholder="e.g. d60" class="rpg-input-small" disabled>
+          <button id="rpg-popup-dice-add-custom" class="rpg-btn" disabled>+ Register Die</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="rpg-drawer" data-section="stats">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">📊 Stats</span>
+        <span class="rpg-drawer-summary" id="rpg-popup-stats-summary">Not configured</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <p class="rpg-section-desc">Base stats for the active ruleset. Add, rename, or remove without touching code.</p>
+        <div id="rpg-popup-stats-list" class="rpg-stats-list">
+          <div class="rpg-empty-state">No stats defined.</div>
+        </div>
+        <div class="rpg-button-row">
+          <button id="rpg-popup-stats-add" class="rpg-btn" disabled>+ Add Stat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DERIVED STATS -->
+    <div class="rpg-drawer" data-section="derived">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">🧮 Derived Stats</span>
+        <span class="rpg-drawer-summary" id="rpg-popup-derived-summary">Not configured</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <div id="rpg-popup-derived-list" class="rpg-stats-list">
+          <div class="rpg-empty-state">No derived stats defined.</div>
+        </div>
+        <p class="rpg-placeholder-note">Derived values (HP, MP, Stamina, Chi…) are computed from ruleset formulas.</p>
+      </div>
+    </div>
+
+    <!-- CHARACTERS -->
+    <div class="rpg-drawer" data-section="characters">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">👤 Characters</span>
+        <span class="rpg-drawer-summary" id="rpg-popup-characters-summary">0 tracked</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <div id="rpg-popup-character-list" class="rpg-character-list">
+          <div class="rpg-empty-state">No characters tracked yet.</div>
+        </div>
+        <div class="rpg-button-row">
+          <button id="rpg-popup-char-add" class="rpg-btn" disabled>+ Add Character</button>
+        </div>
+        <p class="rpg-placeholder-note">Persistent character state (stats, HP/MP, level) independent of any single chat.</p>
+      </div>
+    </div>
+
+    <!-- RESOURCES (placeholder) -->
+    <div class="rpg-drawer" data-section="resources">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">🫙 Resources</span>
+        <span class="rpg-drawer-summary" id="rpg-popup-resources-summary">0 resources</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <p class="rpg-section-desc">Track current/max resources (HP, MP, Stamina…) per character.</p>
+        <p class="rpg-placeholder-note">Not implemented yet.</p>
+      </div>
+    </div>
+
+    <!-- EFFECTS (placeholder) -->
+    <div class="rpg-drawer" data-section="effects">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">📜 Effects</span>
+        <span class="rpg-drawer-summary" id="rpg-popup-effects-summary">0 active</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <p class="rpg-section-desc">Buffs, debuffs, and status effects.</p>
+        <p class="rpg-placeholder-note">Not implemented yet.</p>
+      </div>
+    </div>
+
+    <!-- FORMULA TESTER -->
+    <div class="rpg-drawer" data-section="formula">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">🧪 Formula Tester</span>
+        <span class="rpg-drawer-summary">offline, no chat required</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <div id="rpg-popup-formula-test-stats-preview" class="rpg-formula-stats-preview"></div>
+        <input type="text" id="rpg-popup-formula-test-input" placeholder="e.g. d60 + INT + 0.5*BLS" class="rpg-input-full" disabled>
+        <button id="rpg-popup-formula-test-run" class="rpg-btn" disabled>Evaluate</button>
+        <pre id="rpg-popup-formula-test-output" class="rpg-formula-output">// results will appear here</pre>
+      </div>
+    </div>
+
+    <!-- EVENT LOG (placeholder) -->
+    <div class="rpg-drawer" data-section="log">
+      <div class="rpg-drawer-toggle">
+        <span class="rpg-drawer-icon">▶</span>
+        <span class="rpg-drawer-title">📋 Event Log</span>
+        <span class="rpg-drawer-summary" id="rpg-popup-log-summary">0 events</span>
+      </div>
+      <div class="rpg-drawer-content">
+        <div id="rpg-popup-event-log" class="rpg-event-log">
+          <div class="rpg-empty-state">No events recorded yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- TAB 4 — AI HUB -->
+  <!-- ============================================================= -->
+  <section class="rpg-tab-panel" data-panel="ai-hub">
+    <div class="rpg-aihub">
+
+      <div class="rpg-aihub-master">
+        <div class="rpg-aihub-master-header">
+          <span class="rpg-aihub-title">MASTER AI</span>
+        </div>
+        <label class="rpg-aihub-label" for="rpg-popup-aihub-master-select">Default connection for all RPG Engine AI functions</label>
+        <select id="rpg-popup-aihub-master-select" class="rpg-input-full" disabled>
+          <option value="">-- Use main narrator connection --</option>
+        </select>
+      </div>
+
+      <div class="rpg-aihub-function" data-fn="narrator">
+        <div class="rpg-aihub-fn-head">
+          <span class="rpg-aihub-fn-name">Narrator / Tool Calling</span>
+          <span class="rpg-badge rpg-badge-wip">Not implemented</span>
+        </div>
+        <label class="checkbox_label"><input type="checkbox" checked disabled><span>Use Master AI</span></label>
+        <select class="rpg-input-full" disabled><option>-- use master --</option></select>
+      </div>
+
+      <div class="rpg-aihub-function" data-fn="world-assistant">
+        <div class="rpg-aihub-fn-head">
+          <span class="rpg-aihub-fn-name">World Assistant</span>
+          <span class="rpg-badge rpg-badge-wip">Not implemented</span>
+        </div>
+        <label class="checkbox_label"><input type="checkbox" checked disabled><span>Use Master AI</span></label>
+        <select class="rpg-input-full" disabled><option>-- use master --</option></select>
+      </div>
+
+      <div class="rpg-aihub-function" data-fn="intent">
+        <div class="rpg-aihub-fn-head">
+          <span class="rpg-aihub-fn-name">Intent / Parsing</span>
+          <span class="rpg-badge rpg-badge-wip">Not implemented</span>
+        </div>
+        <label class="checkbox_label"><input type="checkbox" checked disabled><span>Use Master AI</span></label>
+        <select class="rpg-input-full" disabled><option>-- use master --</option></select>
+      </div>
+
+      <div class="rpg-aihub-function" data-fn="ruleset-assistant">
+        <div class="rpg-aihub-fn-head">
+          <span class="rpg-aihub-fn-name">Ruleset Assistant</span>
+          <span class="rpg-badge rpg-badge-live">Available (read-only)</span>
+        </div>
+        <label class="checkbox_label"><input type="checkbox" checked disabled><span>Use Master AI</span></label>
+        <select class="rpg-input-full" disabled><option>-- use master --</option></select>
+        <p class="rpg-placeholder-note">The read-only Ruleset Assistant remains available in the legacy settings panel.</p>
+      </div>
+
+    </div>
+  </section>
+
+</div>
