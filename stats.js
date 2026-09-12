@@ -244,6 +244,74 @@ export function createStat(ruleset, name, def = {}) {
   return ruleset;
 }
 
+/** Indicate whether a name is occupied by a base stat (derived stat names must
+ *  not collide with base names). */
+function isBaseStatName(ruleset, name) {
+  return Object.prototype.hasOwnProperty.call(ruleset?.base ?? {}, name);
+}
+
+/**
+ * Register (or replace) a derived stat definition on a ruleset.
+ *
+ * Derived stats are computed by the formula evaluator (engine-core) in
+ * dependency order and may reference base stats, other derived stats, and the
+ * whitelisted math functions (floor/ceil/round/min/max/abs). A derived stat
+ * whose formula references another derived stat is automatically ordered after
+ * its dependencies by `orderDerivedStats`.
+ *
+ * @param {object} ruleset     The ruleset to mutate (must already define `base`).
+ * @param {string} name        The derived stat's name (non-empty, unique, not a base stat name).
+ * @param {string|object} def  A formula string, or a `{ formula }` object.
+ * @returns {object} The ruleset (mutated in place).
+ */
+export function defineDerivedStat(ruleset, name, def) {
+  validateRuleset(ruleset);
+  if (typeof name !== 'string' || name.trim() === '') {
+    throw new StatsError('Derived stat name must be a non-empty string.');
+  }
+  if (isBaseStatName(ruleset, name)) {
+    throw new StatsError(`Derived stat "${name}" collides with a base stat of the same name.`, { stat: name });
+  }
+  let formula;
+  if (typeof def === 'string') formula = def;
+  else if (isPlainObject(def) && typeof def.formula === 'string') formula = def.formula;
+  else {
+    throw new StatsError(`Derived stat "${name}" requires a string "formula".`, { stat: name });
+  }
+  if (!ruleset.derived) ruleset.derived = {};
+  ruleset.derived[name] = { formula };
+  return ruleset;
+}
+
+/** Look up a single derived stat's resolved value. */
+export function getDerivedStat(character, ruleset, name, now = Date.now()) {
+  const total = getTotalStats(character, ruleset, now);
+  if (!Object.prototype.hasOwnProperty.call(total, name)) {
+    throw new StatsError(`Derived stat "${name}" is not defined in this ruleset.`, { stat: name });
+  }
+  return total[name];
+}
+
+/** Look up the full formula definition for a derived stat (or null). */
+export function getDerivedStatDef(ruleset, name) {
+  return ruleset?.derived?.[name] ?? null;
+}
+
+/** Get the declared derived stat names in dependency (topological) order. */
+export function getDerivedStatNames(ruleset) {
+  return orderDerivedStats(ruleset);
+}
+
+/** Get a flat map of every derived stat name -> resolved value. */
+export function getDerivedStats(character, ruleset, now = Date.now()) {
+  const total = getTotalStats(character, ruleset, now);
+  const out = {};
+  for (const name of orderDerivedStats(ruleset)) {
+    out[name] = total[name];
+  }
+  return out;
+}
+
 // =============================================================================
 // CHARACTER STATE
 // =============================================================================

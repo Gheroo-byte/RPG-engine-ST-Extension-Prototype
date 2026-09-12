@@ -108,14 +108,36 @@ const TOKEN_TYPES = {
   NUMBER: 'NUMBER',
   DICE: 'DICE',
   IDENT: 'IDENT',
+  FUNCTION: 'FUNCTION',
   PLUS: 'PLUS',
   MINUS: 'MINUS',
   STAR: 'STAR',
   SLASH: 'SLASH',
   LPAREN: 'LPAREN',
   RPAREN: 'RPAREN',
+  COMMA: 'COMMA',
   EOF: 'EOF',
 };
+
+/**
+ * Whitelisted math functions available in formulas. This is a CLOSED set of
+ * safe, pure functions backed by Math.* - never arbitrary JS execution. A
+ * formula name that is NOT in this set is treated as a stat reference, so
+ * adding a new function here is the only supported extension point.
+ */
+const FUNCTION_NAMES = Object.freeze(new Set([
+  'floor', 'ceil', 'round', 'min', 'max', 'abs',
+]));
+
+/** Arity requirements for each whitelisted function. */
+const FUNCTION_ARITY = Object.freeze({
+  floor: { min: 1, max: 1 },
+  ceil: { min: 1, max: 1 },
+  round: { min: 1, max: 1 },
+  abs: { min: 1, max: 1 },
+  min: { min: 1, max: Infinity },
+  max: { min: 1, max: Infinity },
+});
 
 function tokenize(formula) {
   const tokens = [];
@@ -133,6 +155,7 @@ function tokenize(formula) {
     if (c === '/') { tokens.push({ type: TOKEN_TYPES.SLASH }); i++; continue; }
     if (c === '(') { tokens.push({ type: TOKEN_TYPES.LPAREN }); i++; continue; }
     if (c === ')') { tokens.push({ type: TOKEN_TYPES.RPAREN }); i++; continue; }
+    if (c === ',') { tokens.push({ type: TOKEN_TYPES.COMMA }); i++; continue; }
 
     // Dice notation: optional digits, 'd' or 'D', digits. e.g. d60, 2d6
     const diceMatch = s.slice(i).match(/^(\d*)[dD](\d+)/);
@@ -158,6 +181,11 @@ function tokenize(formula) {
     if (identMatch) {
       let name = identMatch[0];
       i += name.length;
+      // Function call: a whitelisted name immediately followed by '('.
+      if (FUNCTION_NAMES.has(name.toLowerCase()) && s[i] === '(') {
+        tokens.push({ type: TOKEN_TYPES.FUNCTION, name: name.toLowerCase() });
+        continue;
+      }
       const qualifierMatch = s.slice(i).match(/^\.([A-Za-z_][A-Za-z0-9_]*)/);
       if (qualifierMatch) {
         const qualifier = name;
@@ -278,6 +306,26 @@ class Parser {
         label: t.qualifier ? `${t.qualifier}.${t.name}` : t.name,
       };
     }
+    if (t.type === TOKEN_TYPES.FUNCTION) {
+      this.next();
+      this.expect(TOKEN_TYPES.LPAREN);
+      const args = [];
+      if (this.peek().type !== TOKEN_TYPES.RPAREN) {
+        args.push(this.parseExpression());
+        while (this.peek().type === TOKEN_TYPES.COMMA) {
+          this.next();
+          args.push(this.parseExpression());
+        }
+      }
+      this.expect(TOKEN_TYPES.RPAREN);
+      const arity = FUNCTION_ARITY[t.name];
+      if (args.length < arity.min || args.length > arity.max) {
+        throw new EngineError(
+          `Function "${t.name}" expects ${arity.min === arity.max ? arity.min : `at least ${arity.min}`} argument(s), got ${args.length}.`,
+        );
+      }
+      return { kind: 'call', name: t.name, args };
+    }
     if (t.type === TOKEN_TYPES.LPAREN) {
       this.next();
       const node = this.parseExpression();
@@ -326,6 +374,20 @@ function evaluateNode(node, stats, diceRoller, breakdown) {
     case 'neg': {
       const v = evaluateNode(node.node, stats, diceRoller, breakdown);
       return -v;
+    }
+
+    case 'call': {
+      const argValues = node.args.map((a) => evaluateNode(a, stats, diceRoller, breakdown));
+      switch (node.name) {
+        case 'floor': return Math.floor(argValues[0]);
+        case 'ceil': return Math.ceil(argValues[0]);
+        case 'round': return Math.round(argValues[0]);
+        case 'abs': return Math.abs(argValues[0]);
+        case 'min': return Math.min(...argValues);
+        case 'max': return Math.max(...argValues);
+        default:
+          throw new EngineError(`Unknown function "${node.name}"`);
+      }
     }
 
     case 'bin': {

@@ -10,6 +10,11 @@ import {
   StatsError,
   validateRuleset,
   createStat,
+  defineDerivedStat,
+  getDerivedStat,
+  getDerivedStatDef,
+  getDerivedStatNames,
+  getDerivedStats,
   getBaseStatNames,
   getStatCap,
   getBaseStats,
@@ -30,6 +35,8 @@ import {
   deserializeCharacter,
   extractStatReferences,
 } from './stats.js';
+import { RULESETS } from './rulesets.js';
+import { evaluateFormula, DiceRoller } from './engine-core.js';
 
 let passed = 0;
 let failed = 0;
@@ -450,6 +457,153 @@ section('Configurable raw->modifier mappings');
   assertEqual(getEffectiveStats(c, rs)['Strength Mod'], undefined, 'mapping is NOT merged into getEffectiveStats total');
   addModifier(c, { stat: 'Strength', amount: 1, permanent: true });
   assertEqual(getMappedValues(c, rs)['Strength Mod'], 4, 'Strength 19 still maps to +4 (18-19 band)');
+}
+
+// =============================================================================
+section('D&D ability modifiers via floor((Score-10)/2)');
+// =============================================================================
+{
+  const dnd = RULESETS.dnd;
+
+  const mods = createCharacter(dnd, {
+    Strength: 18, Dexterity: 12, Constitution: 6,
+    Intelligence: 10, Wisdom: 8, Charisma: 13,
+  });
+  const eff = getEffectiveStats(mods, dnd);
+
+  assertEqual(eff['Strength Modifier'], 4, 'Strength 18 -> +4');
+  assertEqual(eff['Dexterity Modifier'], 1, 'Dexterity 12 -> +1');
+  assertEqual(eff['Constitution Modifier'], -2, 'Constitution 6 -> -2');
+  assertEqual(eff['Intelligence Modifier'], 0, 'Intelligence 10 -> 0');
+  assertEqual(eff['Wisdom Modifier'], -1, 'Wisdom 8 -> -1');
+  assertEqual(eff['Charisma Modifier'], 1, 'Charisma 13 -> +1');
+
+  // All six modifiers are present and are numbers.
+  const names = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma']
+    .map((a) => `${a} Modifier`);
+  for (const n of names) {
+    assert(typeof eff[n] === 'number', `D&D derived "${n}" is numeric`);
+  }
+
+  // The canonical formula also works for odd scores and negatives, e.g. 3 -> -4.
+  const odd = createCharacter(dnd, { Strength: 3 });
+  assertEqual(getEffectiveStats(odd, dnd)['Strength Modifier'], -4, 'Strength 3 -> -4 (floor(-3.5) = -4)');
+}
+
+// =============================================================================
+section('Safe formula functions: floor/ceil/round/min/max/abs');
+// =============================================================================
+{
+  const d = new (DiceRoller)();
+  // Direct evaluator checks against a flat stats map.
+  assertEqual(evaluateFormula('floor((18 - 10) / 2)', {}, d).total, 4, 'floor((18-10)/2) = 4');
+  assertEqual(evaluateFormula('floor(2.9)', {}, d).total, 2, 'floor(2.9) = 2');
+  assertEqual(evaluateFormula('ceil(2.1)', {}, d).total, 3, 'ceil(2.1) = 3');
+  assertEqual(evaluateFormula('round(2.5)', {}, d).total, 3, 'round(2.5) = 3');
+  assertEqual(evaluateFormula('round(2.4)', {}, d).total, 2, 'round(2.4) = 2');
+  assertEqual(evaluateFormula('abs(-7)', {}, d).total, 7, 'abs(-7) = 7');
+  assertEqual(evaluateFormula('min(3, 5, 1)', {}, d).total, 1, 'min(3,5,1) = 1');
+  assertEqual(evaluateFormula('max(3, 5, 1)', {}, d).total, 5, 'max(3,5,1) = 5');
+
+  // Nested / combined expressions.
+  assertEqual(evaluateFormula('floor((Score - 10) / 2)', { Score: 6 }, d).total, -2, 'floor((6-10)/2) = -2');
+  assertEqual(evaluateFormula('max(0, floor((Score - 10) / 2))', { Score: 6 }, d).total, 0, 'max clamps a negative modifier to 0');
+  assertEqual(evaluateFormula('round(abs(A - B))', { A: 5, B: 9 }, d).total, 4, 'nested round(abs()) = 4');
+  assertEqual(evaluateFormula('min(max(X, 0), 10) + 1', { X: 25 }, d).total, 11, 'min(max(25,0),10)+1 = 11');
+
+  // Stat names are case-insensitive inside function args.
+  assertEqual(evaluateFormula('floor((STR - 10) / 2)', { STR: 18 }, d).total, 4, 'function arg uses case-insensitive stat lookup');
+
+  // Unknown function name is NOT treated as a function (parsed as a stat reference -> throws on unknown stat).
+  let threw = false;
+  try { evaluateFormula('pow(2, 3)', {}, d); } catch (e) { threw = true; }
+  assert(threw, 'unknown function/stat "pow" is rejected (no arbitrary execution)');
+}
+
+// =============================================================================
+section('Derived-stat definition API (defineDerivedStat / getDerivedStat*)');
+// =============================================================================
+{
+  const rs = { base: { Strength: {}, Endurance: {}, Spirit: {} }, derived: {} };
+
+  defineDerivedStat(rs, 'StrengthMod', { formula: 'floor((Strength - 10) / 2)' });
+  defineDerivedStat(rs, 'Vitality', 'Endurance * 5'); // accept a bare formula string too
+  defineDerivedStat(rs, 'Attack', { formula: 'StrengthMod + Spirit' });
+
+  const c = createCharacter(rs, { Strength: 18, Endurance: 2, Spirit: 3 });
+
+  assertEqual(getDerivedStat(c, rs, 'StrengthMod'), 4, 'getDerivedStat returns resolved StrengthMod (18 -> +4)');
+  assertEqual(getDerivedStat(c, rs, 'Vitality'), 10, 'getDerivedStat returns resolved Vitality (2*5)');
+  assertEqual(getDerivedStat(c, rs, 'Attack'), 7, 'getDerivedStat returns derived->derived Attack (4+3)');
+
+  const def = getDerivedStatDef(rs, 'StrengthMod');
+  assert(def && typeof def.formula === 'string', 'getDerivedStatDef returns the formula definition');
+  assertEqual(def.formula, 'floor((Strength - 10) / 2)', 'getDerivedStatDef returns the stored formula string');
+
+  assertEqual(getDerivedStatNames(rs), ['StrengthMod', 'Vitality', 'Attack'], 'getDerivedStatNames returns dependency-ordered names');
+
+  const all = getDerivedStats(c, rs);
+  assertEqual(all.StrengthMod, 4, 'getDerivedStats includes StrengthMod');
+  assertEqual(all.Vitality, 10, 'getDerivedStats includes Vitality');
+  assertEqual(all.Attack, 7, 'getDerivedStats includes Attack (derived->derived)');
+  assertEqual(Object.keys(all).length, 3, 'getDerivedStats returns exactly the 3 derived stats');
+
+  // defineDerivedStat refuses a name colliding with a base stat.
+  assertThrowsStats(() => defineDerivedStat(rs, 'Strength', 'Strength + 1'), 'defineDerivedStat refuses a base-stat name collision');
+
+  // getDerivedStat throws for an undefined name.
+  assertThrowsStats(() => getDerivedStat(c, rs, 'Nope'), 'getDerivedStat throws for an undefined derived stat');
+}
+
+// =============================================================================
+section('Dependency behavior: recalc after source change, chains, malformed');
+// =============================================================================
+{
+  // Recalculation: change a base stat, re-resolve, derived value updates.
+  const rs = {
+    base: { Strength: {} },
+    derived: {
+      'Modifier': { formula: 'floor((Strength - 10) / 2)' },
+      'Damage': { formula: 'Modifier * 2 + 1' },
+    },
+  };
+  const c = createCharacter(rs, { Strength: 18 });
+  assertEqual(getDerivedStat(c, rs, 'Modifier'), 4, 'before: Modifier = 4 (18)');
+  assertEqual(getDerivedStat(c, rs, 'Damage'), 9, 'before: Damage = 4*2+1 = 9');
+
+  setStat(c, 'Strength', 12);
+  assertEqual(getDerivedStat(c, rs, 'Modifier'), 1, 'after setStat: Modifier = 1 (12)');
+  assertEqual(getDerivedStat(c, rs, 'Damage'), 3, 'after setStat: Damage = 1*2+1 = 3 (recalculated)');
+
+  // Malformed formula -> StatsError (via getEffectiveStats).
+  const malformed = { base: { A: {} }, derived: { X: { formula: 'A + +' } } };
+  assertThrowsStats(() => getEffectiveStats(createCharacter(malformed, { A: 1 }), malformed), 'malformed formula throws StatsError');
+
+  // Missing derived reference throws (orderDerivedStats validates unknown refs).
+  const missing = { base: { A: {} }, derived: { X: { formula: 'Ghost + 1' } } };
+  assertThrowsStats(() => getEffectiveStats(createCharacter(missing, { A: 1 }), missing), 'missing derived reference throws StatsError');
+
+  // Circular derived dependency throws.
+  const circ = { base: { A: {} }, derived: { X: { formula: 'Y + 1' }, Y: { formula: 'X + 1' } } };
+  assertThrowsStats(() => getEffectiveStats(createCharacter(circ, { A: 1 }), circ), 'circular derived dependency throws StatsError');
+}
+
+// =============================================================================
+section('getEffectiveStats compatibility with derived stats');
+// =============================================================================
+{
+  const rs = {
+    base: { Endurance: {}, Strength: {}, Agility: {} },
+    derived: { HP: { formula: 'Endurance * 10 + Strength * 2' } },
+  };
+  const c = createCharacter(rs, { Endurance: 5, Strength: 3, Agility: 2 });
+  const eff = getEffectiveStats(c, rs);
+  // getEffectiveStats still includes base stats...
+  assertEqual(eff.Endurance, 5, 'getEffectiveStats still returns base Endurance');
+  assertEqual(eff.Strength, 3, 'getEffectiveStats still returns base Strength');
+  assertEqual(eff.Agility, 2, 'getEffectiveStats still returns base Agility');
+  // ...and merges the derived HP.
+  assertEqual(eff.HP, 56, 'getEffectiveStats merges derived HP value');
 }
 
 // =============================================================================
