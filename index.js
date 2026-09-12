@@ -1427,10 +1427,11 @@ async function openRpgPopup() {
     cancelButton: 'Close',
   });
 
-  await popup.show();
-
   const root = popup.content;
 
+  // Wire and render everything BEFORE showing: SillyTavern's Popup.show()
+  // resolves only when the popup closes, so doing this after the await would
+  // run against an already-dismissed dialog.
   popupWireTabs(root);
   popupWireDrawers(root);
   popupWireMasterToggle(root);
@@ -1447,6 +1448,8 @@ async function openRpgPopup() {
   popupRenderDerivedList(root);
   popupRenderCustomDiceList(root);
   popupRenderCharactersList(root);
+
+  await popup.show();
 }
 
 // =============================================================================
