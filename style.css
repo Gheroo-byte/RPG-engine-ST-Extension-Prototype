@@ -135,10 +135,23 @@
   border-radius: 6px;
   border: 1px solid var(--SmartThemeBorderColor, #555);
   background: var(--SmartThemeQuoteColor, #2a2a2a);
-  color: inherit;
+  color: var(--SmartThemeBodyColor, #ddd);
   cursor: pointer;
   font-size: 0.9em;
   white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.rpg-btn:hover:not(:disabled) {
+  background: rgba(150, 110, 235, 0.18);
+  border-color: rgba(150, 110, 235, 0.6);
+  color: #e6dcff;
+}
+
+.rpg-btn:active:not(:disabled) {
+  background: rgba(150, 110, 235, 0.28);
+  border-color: #a389ff;
+  color: #f1eaff;
 }
 
 .rpg-btn:disabled {
@@ -148,6 +161,12 @@
 
 .rpg-btn-danger {
   border-color: #a33;
+}
+
+.rpg-btn-danger:hover:not(:disabled) {
+  background: rgba(224, 85, 85, 0.18);
+  border-color: rgba(224, 85, 85, 0.6);
+  color: #ffd6d6;
 }
 
 .rpg-btn-small {

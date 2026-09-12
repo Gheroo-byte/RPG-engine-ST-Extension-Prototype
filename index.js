@@ -86,8 +86,9 @@ const defaultSettings = Object.freeze({
   schemaVersion: SCHEMA_VERSION,
   // rulesets: { [rulesetId]: { id, displayName, base, derived } } (rulesets.js)
   rulesets: RULESETS,
-  // activeRuleset: id of the currently selected system
-  activeRuleset: 'kaelrath',
+  // activeRuleset: id of the currently selected system. D&D 5e is the default
+  // world for a fresh configuration; existing persisted settings are untouched.
+  activeRuleset: 'dnd',
   // characters: [{ id, name, ruleset, base: {statName: {value, potential?}},
   //                resources: {}, effects: [] }]
   characters: [],
