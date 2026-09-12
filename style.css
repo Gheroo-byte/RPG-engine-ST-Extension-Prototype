@@ -529,9 +529,9 @@ select {
 }
 
 .rpg-tab-active {
-  background: linear-gradient(135deg, rgba(198, 163, 93, 0.22), rgba(150, 110, 235, 0.22));
-  border-color: #c6a35d;
-  color: #e8d9b0;
+  background: linear-gradient(135deg, rgba(107, 143, 199, 0.28), rgba(150, 110, 235, 0.28));
+  border-color: #6b8fc7;
+  color: #cfe0f5;
 }
 
 /* ---- Tab panels ---- */
@@ -660,16 +660,16 @@ select {
 }
 
 .rpg-aihub-master {
-  border: 1px solid #c6a35d;
+  border: 1px solid #6b8fc7;
   border-radius: 10px;
   padding: 12px;
-  background: linear-gradient(135deg, rgba(198, 163, 93, 0.10), rgba(150, 110, 235, 0.10));
+  background: linear-gradient(135deg, rgba(107, 143, 199, 0.14), rgba(150, 110, 235, 0.10));
 }
 
 .rpg-aihub-title {
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #e8d9b0;
+  color: #cfe0f5;
 }
 
 .rpg-aihub-master-header {
@@ -732,7 +732,7 @@ select {
 
 .rpg-dice-name {
   font-weight: 600;
-  color: #c6a35d;
+  color: #6b8fc7;
 }
 
 .rpg-dice-sides {
