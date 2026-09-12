@@ -419,8 +419,9 @@ select {
   font-size: 0.75em;
   padding: 2px 8px;
   border-radius: 12px;
-  background: var(--SmartThemeQuoteColor, #2a2a2a);
-  border: 1px solid var(--SmartThemeBorderColor, #555);
+  background: rgba(107, 143, 199, 0.16);
+  border: 1px solid rgba(107, 143, 199, 0.45);
+  color: #cfe0f5;
   white-space: nowrap;
   flex-shrink: 0;
 }
