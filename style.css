@@ -133,8 +133,8 @@
   min-height: 40px;   /* touch-friendly */
   padding: 8px 14px;
   border-radius: 6px;
-  border: 1px solid var(--SmartThemeBorderColor, #555);
-  background: var(--SmartThemeQuoteColor, #2a2a2a);
+  border: 1px solid rgba(107, 143, 199, 0.35);
+  background: rgba(107, 143, 199, 0.10);
   color: var(--SmartThemeBodyColor, #ddd);
   cursor: pointer;
   font-size: 0.9em;
@@ -644,7 +644,7 @@ select {
 
 .rpg-badge-wip {
   background: rgba(128, 128, 128, 0.2);
-  border: 1px solid var(--SmartThemeBorderColor, #555);
+  border: 1px solid rgba(107, 143, 199, 0.35);
   color: var(--SmartThemeBodyColor, #ddd);
 }
 
@@ -718,7 +718,7 @@ select {
 }
 
 .rpg-drawer-toggle-nested:hover {
-  border-color: var(--SmartThemeBorderColor, #555);
+  border-color: rgba(107, 143, 199, 0.45);
 }
 
 /* ---- Dice item (custom dice list) ---- */
