@@ -1071,6 +1071,7 @@ function popupRenderStatsList(root) {
 
   listEl.innerHTML = statNames.map((name) => `
     <div class="rpg-stat-def-item" data-name="${escapeHtml(name)}">
+      <span class="rpg-stat-name">${escapeHtml(name)}</span>
       <div class="rpg-button-row" style="margin-top: 4px;">
         <button class="rpg-btn rpg-btn-small rpg-popup-stat-rename" data-stat="${escapeHtml(name)}">Rename</button>
         <button class="rpg-btn rpg-btn-small rpg-btn-danger rpg-popup-stat-delete" data-stat="${escapeHtml(name)}">Delete</button>
