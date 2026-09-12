@@ -828,22 +828,31 @@ function renderAiSlotsDrawer() {
   });
 }
 
-/** Run a read-only AI slot: snapshot → dispatch → display text. No mutation. */
-async function runAiSlot(slotId) {
+/**
+ * Resolve the slot config and run one read-only Ruleset Assistant request:
+ * snapshot → dispatch → display the raw text. This is the single shared
+ * execution path used by BOTH the legacy AI Slots drawer and the modern
+ * AI Assistant tab. No mutation happens here.
+ *
+ * @param {string} slotId      The AI slot id (e.g. 'slot-ruleset-assistant').
+ * @param {HTMLElement|null} outputEl  Element to write the final text/error into.
+ * @param {(status:string)=>void} [onStatus] Called with a working status ("contacting...") if provided.
+ */
+async function runRulesetAssistant(slotId, outputEl, onStatus) {
   const settings = getSettings();
   const slot = getSlot(settings, slotId);
   if (!slot) {
     console.warn(`[${MODULE_NAME}] AI slot "${slotId}" not found.`);
-    return;
+    return null;
   }
-  if (!slot.enabled) return;
+  if (!slot.enabled) return null;
   if (slot.permission !== 'read-only') {
     // First slice: only read-only slots are runnable. This is a hard gate.
     console.warn(`[${MODULE_NAME}] Slot "${slot.id}" is not read-only; not runnable in this slice.`);
-    return;
+    return null;
   }
 
-  const outputEl = document.querySelector(`[data-output-for="${slot.id}"]`);
+  if (typeof onStatus === 'function') onStatus('contacting');
   if (outputEl) outputEl.textContent = '// contacting AI...';
 
   try {
@@ -867,11 +876,22 @@ async function runAiSlot(slotId) {
       console.warn(`[${MODULE_NAME}] Read-only slot produced proposals; ignoring them.`, proposals);
     }
 
-    if (outputEl) outputEl.textContent = text || '(no response)';
+    const out = text || '(no response)';
+    if (outputEl) outputEl.textContent = out;
+    return out;
   } catch (err) {
     console.error(`[${MODULE_NAME}] AI slot run failed:`, err);
-    if (outputEl) outputEl.textContent = `// error: ${err?.message || err}`;
+    const msg = `// error: ${err?.message || err}`;
+    if (outputEl) outputEl.textContent = msg;
+    return msg;
   }
+}
+
+/** Run a read-only AI slot for the LEGACY settings drawer. */
+function runAiSlot(slotId) {
+  const slot = getSlot(getSettings(), slotId);
+  const outputEl = slot ? document.querySelector(`[data-output-for="${slot.id}"]`) : null;
+  return runRulesetAssistant(slotId, outputEl);
 }
 
 /** Wire the AI Slots drawer (read-only slot run buttons). */
@@ -1412,6 +1432,45 @@ function popupWireFormulaTester(root) {
 }
 
 /**
+ * Wire the AI Assistant tab (popup-scoped). Reuses the shared
+ * runRulesetAssistant() execution path instead of duplicating the legacy
+ * Ruleset Assistant request logic. The Ruleset Assistant is run with the
+ * dedicated slot id 'slot-ruleset-assistant'.
+ */
+function popupWireAiAssistant(root) {
+  const input = root.querySelector('#rpg-popup-assistant-input');
+  const sendBtn = root.querySelector('#rpg-popup-assistant-send');
+  const output = root.querySelector('#rpg-popup-assistant-output');
+  const status = root.querySelector('#rpg-popup-assistant-status');
+  if (!input || !sendBtn || !output) return;
+
+  input.disabled = false;
+  sendBtn.disabled = false;
+  if (status) status.textContent = 'Ready (read-only)';
+
+  const run = async () => {
+    const userText = input.value.trim();
+    if (!userText) return;
+    input.disabled = true;
+    sendBtn.disabled = true;
+    if (status) status.textContent = 'Contacting AI…';
+    output.textContent = '// contacting AI...';
+    try {
+      await runRulesetAssistant('slot-ruleset-assistant', output, (s) => {
+        if (status && s === 'contacting') status.textContent = 'Contacting AI…';
+      });
+    } finally {
+      input.disabled = false;
+      sendBtn.disabled = false;
+      if (status) status.textContent = 'Ready (read-only)';
+    }
+  };
+
+  sendBtn.addEventListener('click', run);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+}
+
+/**
  * Open the four-tab RPG Engine popup. Renders popup.html into a SillyTavern
  * Popup (TEXT type, large/wide/vertical-scrolling), then wires the popup-scoped
  * tabs, drawers, and read-through/writes against the popup DOM only.
@@ -1442,6 +1501,7 @@ async function openRpgPopup() {
   popupWireDice(root);
   popupWireCharacters(root);
   popupWireFormulaTester(root);
+  popupWireAiAssistant(root);
 
   popupRenderWorldOverview(root);
   popupRenderConnectionStatus(root);

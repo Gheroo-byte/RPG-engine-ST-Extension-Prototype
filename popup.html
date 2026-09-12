@@ -20,16 +20,18 @@
   <section class="rpg-tab-panel" data-panel="assistant">
     <div class="rpg-assistant-shell">
       <div class="rpg-assistant-header">
-        <span class="rpg-assistant-title">🤖 AI Assistant</span>
-        <span class="rpg-badge rpg-badge-wip">Not implemented</span>
+        <span class="rpg-assistant-title">🤖 Ruleset Assistant</span>
+        <span class="rpg-badge rpg-badge-live">Available (read-only)</span>
       </div>
+      <p class="rpg-section-desc">Ask the Ruleset Assistant to inspect and explain the active ruleset and character stats in plain language.</p>
       <div class="rpg-assistant-chat">
-        <div class="rpg-empty-state">The RPG Engine assistant will let you configure the engine conversationally — e.g. “make this world use d60s” or “add a Resonance stat with a cap of 100”. Coming soon.</div>
+        <pre id="rpg-popup-assistant-output" class="rpg-assistant-output">// click "Ask Assistant" to inspect current state (read-only)</pre>
       </div>
       <div class="rpg-assistant-inputrow">
-        <input type="text" class="rpg-input-full" placeholder="Ask the assistant to configure the engine…" disabled>
-        <button type="button" class="rpg-btn" disabled>Send</button>
+        <input type="text" id="rpg-popup-assistant-input" class="rpg-input-full" placeholder="Ask about the ruleset, stats, or mechanics…" disabled>
+        <button type="button" id="rpg-popup-assistant-send" class="rpg-btn" disabled>Ask Assistant</button>
       </div>
+      <p id="rpg-popup-assistant-status" class="rpg-placeholder-note">Read-only: the AI may inspect and explain state; it cannot change anything.</p>
     </div>
   </section>
 

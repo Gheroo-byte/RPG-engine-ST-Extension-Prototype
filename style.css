@@ -630,6 +630,16 @@ select {
   align-items: center;
 }
 
+.rpg-assistant-output {
+  margin: 0;
+  padding: 4px 2px;
+  font-family: monospace;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--SmartThemeBodyColor, #ddd);
+}
+
 /* ---- Badges ---- */
 
 .rpg-badge {
