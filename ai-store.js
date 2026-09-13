@@ -23,6 +23,8 @@
  */
 
 import { PERMISSION_LEVELS, validateSlot } from './ai-core.js';
+import { NARRATOR_TOOLS, dispatchToolCall } from './ai-tools.js';
+import { RULESETS } from './rulesets.js';
 
 // =============================================================================
 // SLOT STORAGE
@@ -173,6 +175,48 @@ export async function dispatchSlot(slot, request, options = {}) {
   }
 
   throw new Error('No ST AI generation function is available (generateRaw missing).');
+}
+
+// =============================================================================
+// NARRATOR TOOL DISPATCH (ST-coupled)
+// =============================================================================
+
+/**
+ * Expose the narrator-facing tools as model-visible schemas (name, description,
+ * parameters). `execute` is intentionally NOT included — this list is safe to
+ * serialize into a system prompt or a function-calling payload.
+ */
+export function listNarratorTools() {
+  return Object.values(NARRATOR_TOOLS).map((t) => ({
+    name: t.name,
+    description: t.description,
+    parameters: t.parameters,
+  }));
+}
+
+/**
+ * Resolve a narrator tool's `rulesetId` argument to the actual ruleset object.
+ * Returns null when the id is absent or unknown (callers fall back to the
+ * generic no-profile path).
+ */
+function resolveRulesetById(rulesetId) {
+  if (typeof rulesetId !== 'string' || rulesetId === '') return null;
+  return RULESETS[rulesetId] ?? null;
+}
+
+/**
+ * Dispatch an optional narrator tool call. ST-coupled entry point: resolves a
+ * `rulesetId` to a real ruleset object (from RULESETS) and delegates to the
+ * pure `dispatchToolCall` in ai-tools.js. The narrator chooses to invoke this;
+ * nothing forces tool use onto every action.
+ */
+export function dispatchNarratorTool(name, args, roller) {
+  const safe = args && typeof args === 'object' ? args : {};
+  const resolvedArgs = { ...safe };
+  if (safe.rulesetId !== undefined) {
+    resolvedArgs.ruleset = resolveRulesetById(safe.rulesetId);
+  }
+  return dispatchToolCall(name, resolvedArgs, roller);
 }
 
 /**

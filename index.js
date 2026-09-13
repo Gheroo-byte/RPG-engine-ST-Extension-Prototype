@@ -920,6 +920,10 @@ async function init() {
   console.log(`[${MODULE_NAME}] Initializing...`);
 
   try {
+    // Register narrator function tools (roll_dice / roll_check) with ST's
+    // native function-calling system. Optional: the narrator chooses to call.
+    registerNarratorFunctionTools();
+
     // Register the Wand menu entry and bind it to open the popup control center.
     createWandEntry();
     $(document).on('click', '#rpg-menu-item', openRpgPopup);

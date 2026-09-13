@@ -6,9 +6,11 @@
  * mechanical facts a ruleset needs:
  *   - which base stats exist and how each is shaped (optional potential/cap)
  *   - which derived values exist and how they are computed
+ *   - which check/combat profile (if any) governs how checks resolve
  *
  * The universal engine never assumes every stat has a modifier, stars, a cap,
- * or is derived. Each ruleset declares which mechanisms it uses.
+ * or is derived, and never assumes a ruleset has a combat profile. Each ruleset
+ * declares which mechanisms it uses; the engine merely provides the capability.
  *
  * Keep this file free of SillyTavern / UI / persistence dependencies.
  */
@@ -84,6 +86,24 @@ export const RULESETS = Object.freeze({
       'Max HP':  Object.freeze({ formula: 'CON*10 + STR*2' }),
       'Max CHI': Object.freeze({ formula: 'BLS*10' }),
     }),
+    // Shattered Dominion combat resolution. This is SD-specific DATA; the
+    // generic resolver (check.js) reads it — the engine never hard-codes it.
+    check: Object.freeze({
+      // Pass / Partial (within 5) / Fail bands.
+      bands: Object.freeze({ partialWithin: 5 }),
+      // Natural 60 = guaranteed success; natural 1 = critical failure.
+      natural: Object.freeze({
+        critFace: 60, fumbleFace: 1,
+        critOutcome: 'PASS', fumbleOutcome: 'FAIL',
+      }),
+      // +5 per tier below target, -5 per tier above target.
+      tierGap: Object.freeze({ perTier: 5 }),
+      // SD damage formulas (round to nearest whole, .5 rounds up).
+      damage: Object.freeze({
+        dealt: 'Roll + (Roll - Target) * (Roll / 20)',
+        taken: '(Target - Roll) * Difficulty',
+      }),
+    }),
   }),
 
   'kaelrath': Object.freeze({
@@ -99,6 +119,7 @@ export const RULESETS = Object.freeze({
       'Stamina': Object.freeze({ formula: 'Endurance*8 + Strength*3 + Agility*3' }),
       // NOTE: Mana and Total Resonance are intentionally omitted until their
       // canonical formulas are provided. No guessed formulas here.
+      // Kaelrath defines NO check profile: it uses the generic binary default.
     }),
   }),
 
@@ -113,5 +134,7 @@ export const RULESETS = Object.freeze({
     // floor((score-10)/2) expression, evaluated by the engine's safe formula
     // evaluator (no stored tables, no hard-coded engine logic).
     derived: Object.freeze(buildDndAbilityMods()),
+    // D&D deliberately defines NO check profile: it uses the generic binary
+    // pass/fail default and inherits none of SD's d60/tier/damage mechanics.
   }),
 });
