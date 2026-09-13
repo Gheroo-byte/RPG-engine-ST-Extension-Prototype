@@ -57,6 +57,7 @@ import { RULESETS, SCHEMA_VERSION } from './rulesets.js';
 import { getEffectiveStats, getStatCap, getBaseStatNames } from './stats.js';
 import { getSlots, getSlot, dispatchSlot } from './ai-store.js';
 import { parseProposals } from './ai-core.js';
+import { registerNarratorFunctionTools } from './narrator-tools-st.js';
 
 const MODULE_NAME = 'rpg-engine';
 
