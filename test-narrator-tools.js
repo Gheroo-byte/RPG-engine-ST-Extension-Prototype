@@ -127,6 +127,34 @@ console.log('=== narrator-tools-st.js bridge tests ===\n');
   assertEqual(nullCtx, [], 'null context → empty array, no throw');
 }
 
+// ── engine enable/disable gating ─────────────────────────────────────────────
+{
+  // enabled: engine predicate true + supported → tool available.
+  const onCtx = mockContext({ toolsSupported: true });
+  registerNarratorFunctionTools(onCtx, () => true);
+  const diceOn = onCtx.registered.find((d) => d.name === 'roll_dice');
+  assertEqual(diceOn.shouldRegister(), true, 'enabled + supported → shouldRegister true');
+
+  // disabled: engine predicate false → tool NOT available (even if supported).
+  const offCtx = mockContext({ toolsSupported: true });
+  registerNarratorFunctionTools(offCtx, () => false);
+  const diceOff = offCtx.registered.find((d) => d.name === 'roll_dice');
+  const checkOff = offCtx.registered.find((d) => d.name === 'roll_check');
+  assertEqual(diceOff.shouldRegister(), false, 'disabled → roll_dice shouldRegister false');
+  assertEqual(checkOff.shouldRegister(), false, 'disabled → roll_check shouldRegister false');
+
+  // toggling the predicate changes the behavior (re-enabled → true again).
+  let enabled = false;
+  const toggleCtx = mockContext({ toolsSupported: true });
+  registerNarratorFunctionTools(toggleCtx, () => enabled);
+  const d = toggleCtx.registered.find((t) => t.name === 'roll_dice');
+  assertEqual(d.shouldRegister(), false, 'initially disabled → false');
+  enabled = true;
+  assertEqual(d.shouldRegister(), true, 're-enabled → true');
+  enabled = false;
+  assertEqual(d.shouldRegister(), false, 're-disabled → false');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) { console.log('\nFailures:'); failures.forEach((f) => console.log(f)); process.exit(1); }
 console.log('All narrator bridge tests passed.');

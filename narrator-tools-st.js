@@ -32,7 +32,7 @@ import { dispatchNarratorTool } from './ai-store.js';
  * @returns {object} ST-ready definition (name, description, parameters with
  *                   $schema, action returns a JSON string, shouldRegister).
  */
-function buildStToolDefinition(tool) {
+function buildStToolDefinition(tool, isEngineEnabled) {
   return {
     name: tool.name,
     displayName: tool.name,
@@ -54,8 +54,10 @@ function buildStToolDefinition(tool) {
         return JSON.stringify({ error: err?.message ?? String(err) });
       }
     },
-    // Only offer the tool when ST function calling is actually available.
-    shouldRegister: () => true,
+    // `shouldRegister` is finalized by the caller (registerNarratorFunctionTools
+    // folds in BOTH the engine-enable predicate and ST availability). Keep a
+    // permissive default so a bare buildStToolDefinition still works standalone.
+    shouldRegister: () => (isEngineEnabled ? isEngineEnabled() : true),
   };
 }
 
@@ -66,7 +68,7 @@ function buildStToolDefinition(tool) {
  *                           Injectable for tests.
  * @returns {object[]} The array of registered tool definitions (for inspection).
  */
-export function registerNarratorFunctionTools(context) {
+export function registerNarratorFunctionTools(context, isEngineEnabled) {
   const ctx = context ?? (typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null);
   if (!ctx || typeof ctx.registerFunctionTool !== 'function') {
     // ST version doesn't expose function tools; degrade gracefully (no tools).
@@ -75,12 +77,15 @@ export function registerNarratorFunctionTools(context) {
 
   const registered = [];
   for (const tool of Object.values(NARRATOR_TOOLS)) {
-    const def = buildStToolDefinition(tool);
+    const def = buildStToolDefinition(tool, isEngineEnabled);
 
-    // Wire optionality to ST's availability check when it exists.
-    if (typeof ctx.isToolCallingSupported === 'function') {
-      def.shouldRegister = () => ctx.isToolCallingSupported();
-    }
+    // Wire optionality to BOTH the RPG Engine enable state AND ST's function
+    // calling availability: either gate can exclude the tools.
+    def.shouldRegister = () => {
+      const engineOn = isEngineEnabled ? isEngineEnabled() : true;
+      const supported = typeof ctx.isToolCallingSupported === 'function' ? ctx.isToolCallingSupported() : true;
+      return engineOn && supported;
+    };
 
     ctx.registerFunctionTool(def);
     registered.push(def);
@@ -92,8 +97,10 @@ export function registerNarratorFunctionTools(context) {
  * Build the ST tool definitions WITHOUT registering them (for tests and for any
  * host that needs to inspect/merge tool schemas explicitly).
  *
+ * @param {() => boolean} [isEngineEnabled] Optional "engine enabled" predicate
+ *                                          folded into each tool's shouldRegister.
  * @returns {object[]} ST-ready tool definitions (same shape as registerX).
  */
-export function buildNarratorToolDefinitions() {
-  return Object.values(NARRATOR_TOOLS).map(buildStToolDefinition);
+export function buildNarratorToolDefinitions(isEngineEnabled) {
+  return Object.values(NARRATOR_TOOLS).map((t) => buildStToolDefinition(t, isEngineEnabled));
 }

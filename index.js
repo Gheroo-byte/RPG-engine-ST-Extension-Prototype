@@ -923,7 +923,8 @@ async function init() {
   try {
     // Register narrator function tools (roll_dice / roll_check) with ST's
     // native function-calling system. Optional: the narrator chooses to call.
-    registerNarratorFunctionTools();
+    // Gated by BOTH the RPG Engine enable toggle and ST function-calling support.
+    registerNarratorFunctionTools(null, () => getSettings().enabled);
 
     // Register the Wand menu entry and bind it to open the popup control center.
     createWandEntry();
