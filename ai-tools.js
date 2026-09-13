@@ -134,7 +134,10 @@ function executeRollDice(args, roller) {
 export const roll_dice = Object.freeze({
   name: 'roll_dice',
   description:
-    'Roll standard tabletop dice and return authoritative results. ' +
+    'Roll standard tabletop dice and return the authoritative result. ' +
+    'Call this BEFORE narrating or describing the roll\'s outcome; do not write ' +
+    'any narrative, HUD, scene text, dialogue, or the roll\'s result until the tool returns. ' +
+    'Treat the returned roll as authoritative — do not invent, estimate, or replace the returned result. ' +
     'Accepts "XdY", "XdY+Z", or "XdY-Z" (e.g. 1d20, 2d20, 3d8, 2d20+5, 1d20-2).',
   parameters: Object.freeze({
     type: 'object',
@@ -202,10 +205,16 @@ function executeRollCheck(args, roller) {
 export const roll_check = Object.freeze({
   name: 'roll_check',
   description:
-    'Resolve a ruleset-aware check or opposed check with authoritative dice ' +
-    'and rules. Accepts an actor formula, an opposed target formula or a fixed DC, ' +
-    'optional alternative-stat selections, tiers, and difficulty. The active ' +
-    'ruleset determines pass/partial/fail, natural-roll, tier-gap, and damage rules.',
+    'Resolve a ruleset-aware check or opposed check with authoritative dice and rules. ' +
+    'When a mechanical check governed by the active ruleset is needed, call this BEFORE ' +
+    'writing any narrative, HUD, scene description, dialogue, or mechanical outcome. ' +
+    'Do not narrate the result before the tool returns, and do not manually invent, estimate, ' +
+    'or calculate the final mechanical result when this tool can resolve it. ' +
+    'Treat the returned result as authoritative. After the tool returns, write the normal ' +
+    'final response once. ' +
+    'Accepts an actor formula, an opposed target formula or a fixed DC, optional ' +
+    'alternative-stat selections, tiers, and difficulty. The active ruleset determines ' +
+    'pass/partial/fail, natural-roll, tier-gap, and damage rules.',
   parameters: Object.freeze({
     type: 'object',
     properties: Object.freeze({
